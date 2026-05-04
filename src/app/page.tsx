@@ -194,8 +194,8 @@ export default function Home() {
     if (!showHidden && l.is_hidden) return false
     // Drop sold and delisted listings
     if (l.is_sold || l.delisted_at) return false
-    // Drop listings with no financial data at all
-    if (l.cash_flow == null && l.annual_revenue == null && l.asking_price == null) return false
+    // Must have at least revenue or cash flow — price alone is not enough
+    if (l.cash_flow == null && l.annual_revenue == null) return false
     return true
   })
 
