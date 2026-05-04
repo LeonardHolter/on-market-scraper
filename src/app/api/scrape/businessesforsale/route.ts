@@ -27,10 +27,11 @@ export const maxDuration = 300
  *   </div>
  */
 
+// PageSize=10000 returns all matching listings (~5,000) in a single response.
+// One big request is far more reliable than paginating — BFS sometimes returns
+// short pages or duplicates when paginating, which previously capped us at ~484.
 const BASE_URL =
-  'https://us.businessesforsale.com/us/search/services-businesses-for-sale?Profit.From=400K'
-const PAGE_SIZE = 500
-const MAX_PAGES = 25 // 25 × 500 = 12,500 max — well above the ~5,000 listings BFS returns
+  'https://us.businessesforsale.com/us/search/services-businesses-for-sale?Profit.From=400K&PageSize=10000'
 
 const USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
@@ -50,20 +51,27 @@ function parseListings(html: string): BFSListing[] {
   const $ = cheerio.load(html)
   const out: BFSListing[] = []
 
-  $('div.result').each((_, el) => {
+  // Match both the standard ".result" and the M&A Vault ".mv-result" cards
+  $('div.result, div.mv-result').each((_, el) => {
     const $el = $(el)
 
-    const $titleA = $el.find('table.result-table > caption h2 a').first()
+    // Title can be in `caption h2 a` (standard) or `caption .title-wrap h2 a` (mv-result)
+    const $titleA = $el.find('caption h2 a').first()
     const title = ($titleA.text() || '').trim().replace(/\s+/g, ' ')
     const url = ($titleA.attr('href') || '').trim()
     if (!title || !url) return
 
-    const location = $el
+    // Standard format: <tr class="t-loc"><td>City, State</td>
+    // mv-result format: <span class="mv-location">United States</span>
+    let location = $el
       .find('tr.t-loc > td')
       .first()
       .text()
       .trim()
       .replace(/\s+/g, ' ')
+    if (!location) {
+      location = $el.find('.mv-location').first().text().trim().replace(/\s+/g, ' ')
+    }
 
     const status = $el
       .find('tr.t-labels .result-labels')
@@ -81,11 +89,11 @@ function parseListings(html: string): BFSListing[] {
       description = $p.text().trim().replace(/\s+/g, ' ').slice(0, 600)
     }
 
-    // Financials: nested table inside tr.t-finance
+    // Financials: nested table inside tr.t-finance OR tr.mv-result-finance
     let askingPrice = ''
     let annualRevenue = ''
     let cashFlow = ''
-    $el.find('tr.t-finance table tr').each((_, row) => {
+    $el.find('tr.t-finance table tr, tr.mv-result-finance table tr').each((_, row) => {
       const $row = $(row)
       const label = $row.find('th').text().trim().toLowerCase()
       const value = $row.find('td').text().trim().replace(/\s+/g, ' ')
@@ -113,55 +121,31 @@ function parseListings(html: string): BFSListing[] {
   return out
 }
 
-async function fetchPage(page: number): Promise<BFSListing[]> {
-  const url = `${BASE_URL}&PageSize=${PAGE_SIZE}${page > 1 ? `&page=${page}` : ''}`
-  const { data: html } = await axios.get<string>(url, {
-    headers: {
-      'User-Agent': USER_AGENT,
-      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9',
-    },
-    timeout: 60_000,
-    // Big pages can be 5+ MB
-    maxContentLength: 50 * 1024 * 1024,
-    maxBodyLength: 50 * 1024 * 1024,
-  })
-  return parseListings(html)
-}
-
 export async function POST() {
   try {
-    const all: BFSListing[] = []
-    const seenUrls = new Set<string>()
-    let page = 1
-    let prevFirstUrl: string | null = null
+    const { data: html } = await axios.get<string>(BASE_URL, {
+      headers: {
+        'User-Agent': USER_AGENT,
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+      timeout: 90_000,
+      // Single response is ~25MB at PageSize=10000 — bump the cap well above that
+      maxContentLength: 100 * 1024 * 1024,
+      maxBodyLength: 100 * 1024 * 1024,
+    })
 
-    while (page <= MAX_PAGES) {
-      const listings = await fetchPage(page)
-      if (listings.length === 0) break
+    const all = parseListings(html)
 
-      // Pagination didn't advance — same first row as previous page → stop
-      if (page > 1 && listings[0]?.url === prevFirstUrl) break
-      prevFirstUrl = listings[0]?.url ?? null
+    // Deduplicate by URL (defensive — shouldn't happen at PageSize=10000 but cheap)
+    const seen = new Set<string>()
+    const unique = all.filter((l) => {
+      if (seen.has(l.url)) return false
+      seen.add(l.url)
+      return true
+    })
 
-      let added = 0
-      for (const l of listings) {
-        if (seenUrls.has(l.url)) continue
-        seenUrls.add(l.url)
-        all.push(l)
-        added++
-      }
-
-      // If page returned less than PAGE_SIZE, we're done
-      if (listings.length < PAGE_SIZE) break
-      // If nothing new was added, we're seeing duplicates — stop
-      if (added === 0) break
-
-      page++
-      await new Promise((r) => setTimeout(r, 600))
-    }
-
-    if (all.length === 0) {
+    if (unique.length === 0) {
       return NextResponse.json(
         { success: false, error: 'No listings parsed — site layout may have changed.' },
         { status: 404 }
@@ -170,7 +154,7 @@ export async function POST() {
 
     // BFS removes sold listings, so unseen rows in this complete scrape get auto-delisted.
     const upsert = await upsertBrokerListings(
-      all.map((l) => ({
+      unique.map((l) => ({
         source: 'businessesforsale',
         source_listing_url: l.url,
         title: l.title,
@@ -187,8 +171,8 @@ export async function POST() {
 
     return NextResponse.json({
       success: true,
-      count: all.length,
-      pages: page,
+      count: unique.length,
+      htmlBytes: html.length,
       storage: upsert,
       scrapedAt: new Date().toISOString(),
     })
