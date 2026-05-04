@@ -185,17 +185,16 @@ export default function Home() {
   const activeStatus = filterSource ? scrapeStatus[filterSource] : null
   const hiddenCount = stored.filter((l) => l.is_hidden).length
   const filteredByCashFlow = stored.filter((l) => {
+    // Cash flow must always be present
+    if (l.cash_flow == null) return false
     if (minCashFlow <= 0) return true
-    // Include listings where cash flow is unknown (null) so they're not silently dropped
-    if (l.cash_flow == null) return true
     return l.cash_flow >= minCashFlow
   })
   const visibleListings = filteredByCashFlow.filter((l) => {
     if (!showHidden && l.is_hidden) return false
     // Drop sold and delisted listings
     if (l.is_sold || l.delisted_at) return false
-    // Must have at least revenue or cash flow — price alone is not enough
-    if (l.cash_flow == null && l.annual_revenue == null) return false
+    // Cash flow is already guaranteed non-null by filteredByCashFlow above
     return true
   })
 
