@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   let query = supabaseAdmin
     .from('broker_listings')
     .select(
-      'id,source,source_listing_url,title,asking_price_text,asking_price,annual_revenue_text,annual_revenue,cash_flow_text,cash_flow,location,status,first_seen_at,last_seen_at,is_sold,sold_detected_at,previous_asking_price,price_changed_at,previous_title,title_changed_at,delisted_at'
+      'id,source,source_listing_url,title,asking_price_text,asking_price,annual_revenue_text,annual_revenue,cash_flow_text,cash_flow,location,status,first_seen_at,last_seen_at,is_sold,sold_detected_at,previous_asking_price,price_changed_at,previous_title,title_changed_at,delisted_at,is_hidden'
     )
     .order('asking_price', { ascending: false, nullsFirst: false })
     .limit(limit)

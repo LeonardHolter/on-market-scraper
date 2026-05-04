@@ -24,6 +24,7 @@ interface StoredListing {
   previous_title: string | null
   title_changed_at: string | null
   delisted_at: string | null
+  is_hidden: boolean | null
 }
 
 interface SiteConfig {
@@ -67,6 +68,8 @@ export default function Home() {
   const [storedError, setStoredError] = useState<string | null>(null)
   const [scrapeStatus, setScrapeStatus] = useState<Record<string, ScrapeStatus>>({})
   const [lastAutoRun, setLastAutoRun] = useState<string | null>(null)
+  const [showHidden, setShowHidden] = useState(false)
+  const [hidingId, setHidingId] = useState<string | null>(null)
   const lastRunRef = useRef<number>(0)
 
   const refreshStored = useCallback(async (source: string | null = null) => {
@@ -124,6 +127,30 @@ export default function Home() {
     [filterSource, refreshStored]
   )
 
+  const toggleHidden = useCallback(async (listing: StoredListing) => {
+    const newVal = !listing.is_hidden
+    setHidingId(listing.id)
+    // Optimistic update
+    setStored((prev) =>
+      prev.map((l) => (l.id === listing.id ? { ...l, is_hidden: newVal } : l))
+    )
+    try {
+      const res = await fetch(`/api/broker-listings/${listing.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_hidden: newVal }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    } catch {
+      // Roll back on failure
+      setStored((prev) =>
+        prev.map((l) => (l.id === listing.id ? { ...l, is_hidden: !newVal } : l))
+      )
+    } finally {
+      setHidingId(null)
+    }
+  }, [])
+
   // Client-side hourly auto-rescrape (works while dashboard is open, dev fallback)
   useEffect(() => {
     const tick = async () => {
@@ -154,6 +181,8 @@ export default function Home() {
 
   const totalStored = Object.values(bySource).reduce((a, b) => a + b, 0)
   const activeStatus = filterSource ? scrapeStatus[filterSource] : null
+  const hiddenCount = stored.filter((l) => l.is_hidden).length
+  const visibleListings = stored.filter((l) => showHidden || !l.is_hidden)
 
   const fmtMoney = (n: number | null, fallback: string | null) =>
     n != null ? `$${n.toLocaleString()}` : fallback || '—'
@@ -285,7 +314,7 @@ export default function Home() {
           </div>
         )}
 
-        <div className="flex items-center gap-2 text-xs">
+        <div className="flex items-center gap-2 text-xs flex-wrap">
           <span className="text-gray-500">Filter:</span>
           <button
             onClick={() => setFilterSource(null)}
@@ -310,6 +339,18 @@ export default function Home() {
               {s.source} ({bySource[s.source] || 0})
             </button>
           ))}
+          {hiddenCount > 0 && (
+            <button
+              onClick={() => setShowHidden((v) => !v)}
+              className={`ml-auto px-3 py-1 rounded-full border transition-colors ${
+                showHidden
+                  ? 'border-gray-600 bg-gray-700/40 text-gray-300'
+                  : 'border-gray-800 text-gray-600 hover:border-gray-600 hover:text-gray-400'
+              }`}
+            >
+              {showHidden ? 'Hide' : 'Show'} not interested ({hiddenCount})
+            </button>
+          )}
         </div>
 
         {activeStatus?.error && (
@@ -332,7 +373,7 @@ export default function Home() {
               {filterSource
                 ? `${SITES.find((s) => s.source === filterSource)?.name ?? filterSource}`
                 : 'All Listings'}{' '}
-              <span className="text-gray-500 font-normal">({stored.length})</span>
+              <span className="text-gray-500 font-normal">({visibleListings.length})</span>
             </h2>
             <div className="flex items-center gap-3 text-[11px] text-gray-600">
               {activeStatus?.storage && (
@@ -371,27 +412,33 @@ export default function Home() {
                   <th className="text-right px-4 py-3 font-medium">Annual Revenue</th>
                   <th className="text-right px-4 py-3 font-medium">Cash Flow</th>
                   <th className="text-right px-4 py-3 font-medium">First Seen</th>
+                  <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody>
                 {storedLoading && stored.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-gray-600 text-xs">
+                    <td colSpan={7} className="px-4 py-8 text-center text-gray-600 text-xs">
                       Loading from Supabase…
                     </td>
                   </tr>
-                ) : stored.length === 0 ? (
+                ) : visibleListings.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-gray-600 text-xs">
-                      No listings stored yet — click a source above to scrape.
+                    <td colSpan={7} className="px-4 py-8 text-center text-gray-600 text-xs">
+                      {stored.length === 0
+                        ? 'No listings stored yet — click a source above to scrape.'
+                        : 'All listings marked as not interested.'}
                     </td>
                   </tr>
                 ) : (
-                  stored.map((l) => {
+                  visibleListings.map((l) => {
                     const isSold = !!l.is_sold
                     const isDelisted = !!l.delisted_at
+                    const isHidden = !!l.is_hidden
                     const hasPriceChange = !!l.price_changed_at
-                    const titleColor = isDelisted
+                    const titleColor = isHidden
+                      ? 'text-gray-600'
+                      : isDelisted
                       ? 'text-gray-500 line-through'
                       : isSold
                       ? 'text-yellow-200'
@@ -400,7 +447,9 @@ export default function Home() {
                     return (
                       <tr
                         key={l.id}
-                        className="border-b border-gray-800/60 last:border-b-0 hover:bg-gray-800/30 transition-colors"
+                        className={`border-b border-gray-800/60 last:border-b-0 transition-colors ${
+                          isHidden ? 'opacity-40 hover:opacity-70' : 'hover:bg-gray-800/30'
+                        }`}
                       >
                         <td className="px-4 py-3 max-w-md">
                           <div className="flex items-start gap-2">
@@ -446,7 +495,7 @@ export default function Home() {
                         </td>
                         <td className="px-4 py-3 text-gray-500 capitalize text-xs">{l.source}</td>
                         <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap">
-                          <div className={isDelisted ? 'text-gray-500' : 'text-green-400 font-medium'}>
+                          <div className={isDelisted || isHidden ? 'text-gray-500' : 'text-green-400 font-medium'}>
                             {fmtMoney(l.asking_price, l.asking_price_text)}
                           </div>
                           {hasPriceChange && l.previous_asking_price != null && (
@@ -463,6 +512,20 @@ export default function Home() {
                         </td>
                         <td className="px-4 py-3 text-right text-gray-600 text-xs whitespace-nowrap">
                           {new Date(l.first_seen_at).toLocaleDateString()}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            onClick={() => toggleHidden(l)}
+                            disabled={hidingId === l.id}
+                            title={isHidden ? 'Mark as interesting' : 'Not interested'}
+                            className={`text-[11px] px-2 py-1 rounded border transition-colors disabled:opacity-40 ${
+                              isHidden
+                                ? 'border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300'
+                                : 'border-gray-800 text-gray-600 hover:border-red-800 hover:text-red-400 hover:bg-red-950/20'
+                            }`}
+                          >
+                            {isHidden ? '↩ Restore' : '✕'}
+                          </button>
                         </td>
                       </tr>
                     )
