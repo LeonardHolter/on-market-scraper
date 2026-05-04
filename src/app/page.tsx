@@ -192,6 +192,8 @@ export default function Home() {
   const visibleListings = filteredByCashFlow.filter((l) => {
     // Drop sold and delisted listings
     if (l.is_sold || l.delisted_at) return false
+    // Drop franchise listings — we don't buy franchises
+    if (/\bfranchise[sd]?\b/i.test(l.title)) return false
     // Cash flow is already guaranteed non-null by filteredByCashFlow above
     return true
   })
