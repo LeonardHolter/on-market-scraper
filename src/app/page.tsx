@@ -70,6 +70,8 @@ export default function Home() {
   const [lastAutoRun, setLastAutoRun] = useState<string | null>(null)
   const [showHidden, setShowHidden] = useState(false)
   const [hidingId, setHidingId] = useState<string | null>(null)
+  const [minCashFlow, setMinCashFlow] = useState<number>(400_000)
+  const [cashFlowInput, setCashFlowInput] = useState('400000')
   const lastRunRef = useRef<number>(0)
 
   const refreshStored = useCallback(async (source: string | null = null) => {
@@ -182,7 +184,13 @@ export default function Home() {
   const totalStored = Object.values(bySource).reduce((a, b) => a + b, 0)
   const activeStatus = filterSource ? scrapeStatus[filterSource] : null
   const hiddenCount = stored.filter((l) => l.is_hidden).length
-  const visibleListings = stored.filter((l) => showHidden || !l.is_hidden)
+  const filteredByCashFlow = stored.filter((l) => {
+    if (minCashFlow <= 0) return true
+    // Include listings where cash flow is unknown (null) so they're not silently dropped
+    if (l.cash_flow == null) return true
+    return l.cash_flow >= minCashFlow
+  })
+  const visibleListings = filteredByCashFlow.filter((l) => showHidden || !l.is_hidden)
 
   const fmtMoney = (n: number | null, fallback: string | null) =>
     n != null ? `$${n.toLocaleString()}` : fallback || '—'
@@ -314,8 +322,32 @@ export default function Home() {
           </div>
         )}
 
+        <div className="flex items-center gap-3 text-xs flex-wrap">
+          <span className="text-gray-500">Min cash flow:</span>
+          <div className="flex items-center gap-1">
+            <span className="text-gray-500">$</span>
+            <input
+              type="number"
+              value={cashFlowInput}
+              onChange={(e) => {
+                setCashFlowInput(e.target.value)
+                const n = parseInt(e.target.value.replace(/,/g, ''), 10)
+                if (!isNaN(n)) setMinCashFlow(n)
+                else if (e.target.value === '') setMinCashFlow(0)
+              }}
+              placeholder="0"
+              className="w-28 bg-gray-900 border border-gray-700 rounded px-2 py-1 text-gray-200 text-xs focus:outline-none focus:border-blue-600"
+            />
+          </div>
+          {minCashFlow > 0 && (
+            <span className="text-gray-600">
+              — showing {visibleListings.length} of {stored.length} listings
+            </span>
+          )}
+        </div>
+
         <div className="flex items-center gap-2 text-xs flex-wrap">
-          <span className="text-gray-500">Filter:</span>
+          <span className="text-gray-500">Source:</span>
           <button
             onClick={() => setFilterSource(null)}
             className={`px-3 py-1 rounded-full border transition-colors ${
