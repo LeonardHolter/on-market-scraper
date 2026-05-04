@@ -36,8 +36,9 @@ interface SiteConfig {
 }
 
 const SITES: SiteConfig[] = [
-  { name: 'Synergy Business Brokers',   source: 'synergy', phase: 1, url: 'synergybb.com',                 endpoint: '/api/scrape/synergy' },
-  { name: 'Bateson Business Brokerage', source: 'bateson', phase: 1, url: 'breareger.dealrelations.com',   endpoint: '/api/scrape/bateson' },
+  { name: 'Synergy Business Brokers',   source: 'synergy',          phase: 1, url: 'synergybb.com',                  endpoint: '/api/scrape/synergy' },
+  { name: 'Bateson Business Brokerage', source: 'bateson',          phase: 1, url: 'breareger.dealrelations.com',    endpoint: '/api/scrape/bateson' },
+  { name: 'BusinessesForSale.com',      source: 'businessesforsale',phase: 1, url: 'us.businessesforsale.com',       endpoint: '/api/scrape/businessesforsale' },
 ]
 
 interface ScrapeStatus {
@@ -160,7 +161,7 @@ export default function Home() {
       lastRunRef.current = now
 
       // Only run cron-safe sources here. Bateson needs a browser popup; skip it.
-      const cronSafe = SITES.filter((s) => s.source === 'synergy')
+      const cronSafe = SITES.filter((s) => s.source === 'synergy' || s.source === 'businessesforsale')
       for (const site of cronSafe) {
         await runScrape(site, { silent: true })
       }
