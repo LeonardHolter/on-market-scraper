@@ -190,7 +190,12 @@ export default function Home() {
     if (l.cash_flow == null) return true
     return l.cash_flow >= minCashFlow
   })
-  const visibleListings = filteredByCashFlow.filter((l) => showHidden || !l.is_hidden)
+  const visibleListings = filteredByCashFlow.filter((l) => {
+    if (!showHidden && l.is_hidden) return false
+    // Drop listings with no financial data at all
+    if (l.cash_flow == null && l.annual_revenue == null && l.asking_price == null) return false
+    return true
+  })
 
   const fmtMoney = (n: number | null, fallback: string | null) =>
     n != null ? `$${n.toLocaleString()}` : fallback || '—'
