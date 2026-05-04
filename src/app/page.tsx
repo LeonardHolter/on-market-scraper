@@ -72,6 +72,7 @@ export default function Home() {
   const [hidingId, setHidingId] = useState<string | null>(null)
   const [minCashFlow, setMinCashFlow] = useState<number>(400_000)
   const [cashFlowInput, setCashFlowInput] = useState('400000')
+  const [hideFranchises, setHideFranchises] = useState(true)
   const lastRunRef = useRef<number>(0)
 
   const refreshStored = useCallback(async (source: string | null = null) => {
@@ -192,8 +193,8 @@ export default function Home() {
   const visibleListings = filteredByCashFlow.filter((l) => {
     // Drop sold and delisted listings
     if (l.is_sold || l.delisted_at) return false
-    // Drop franchise listings — we don't buy franchises
-    if (/\bfranchise[sd]?\b/i.test(l.title)) return false
+    // Drop franchise listings if toggle is on
+    if (hideFranchises && /\bfranchise[sd]?\b/i.test(l.title)) return false
     // Cash flow is already guaranteed non-null by filteredByCashFlow above
     return true
   })
@@ -350,6 +351,16 @@ export default function Home() {
               — showing {visibleListings.length} of {stored.length} listings
             </span>
           )}
+          <button
+            onClick={() => setHideFranchises((v) => !v)}
+            className={`ml-auto px-3 py-1 rounded-full border transition-colors ${
+              hideFranchises
+                ? 'border-blue-600 bg-blue-600/10 text-blue-300'
+                : 'border-gray-800 text-gray-500 hover:border-gray-600 hover:text-gray-300'
+            }`}
+          >
+            {hideFranchises ? '✓ ' : ''}Hide franchises
+          </button>
         </div>
 
         <div className="flex items-center gap-2 text-xs flex-wrap">
