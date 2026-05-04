@@ -68,7 +68,6 @@ export default function Home() {
   const [storedError, setStoredError] = useState<string | null>(null)
   const [scrapeStatus, setScrapeStatus] = useState<Record<string, ScrapeStatus>>({})
   const [lastAutoRun, setLastAutoRun] = useState<string | null>(null)
-  const [showHidden, setShowHidden] = useState(false)
   const [hidingId, setHidingId] = useState<string | null>(null)
   const [minCashFlow, setMinCashFlow] = useState<number>(400_000)
   const [cashFlowInput, setCashFlowInput] = useState('400000')
@@ -183,7 +182,6 @@ export default function Home() {
 
   const totalStored = Object.values(bySource).reduce((a, b) => a + b, 0)
   const activeStatus = filterSource ? scrapeStatus[filterSource] : null
-  const hiddenCount = stored.filter((l) => l.is_hidden).length
   const filteredByCashFlow = stored.filter((l) => {
     // Cash flow must always be present
     if (l.cash_flow == null) return false
@@ -191,7 +189,6 @@ export default function Home() {
     return l.cash_flow >= minCashFlow
   })
   const visibleListings = filteredByCashFlow.filter((l) => {
-    if (!showHidden && l.is_hidden) return false
     // Drop sold and delisted listings
     if (l.is_sold || l.delisted_at) return false
     // Cash flow is already guaranteed non-null by filteredByCashFlow above
@@ -377,18 +374,6 @@ export default function Home() {
               {s.source} ({bySource[s.source] || 0})
             </button>
           ))}
-          {hiddenCount > 0 && (
-            <button
-              onClick={() => setShowHidden((v) => !v)}
-              className={`ml-auto px-3 py-1 rounded-full border transition-colors ${
-                showHidden
-                  ? 'border-gray-600 bg-gray-700/40 text-gray-300'
-                  : 'border-gray-800 text-gray-600 hover:border-gray-600 hover:text-gray-400'
-              }`}
-            >
-              {showHidden ? 'Hide' : 'Show'} not interested ({hiddenCount})
-            </button>
-          )}
         </div>
 
         {activeStatus?.error && (
@@ -475,7 +460,7 @@ export default function Home() {
                     const isHidden = !!l.is_hidden
                     const hasPriceChange = !!l.price_changed_at
                     const titleColor = isHidden
-                      ? 'text-gray-600'
+                      ? 'text-gray-600 line-through'
                       : isDelisted
                       ? 'text-gray-500 line-through'
                       : isSold
@@ -485,8 +470,8 @@ export default function Home() {
                     return (
                       <tr
                         key={l.id}
-                        className={`border-b border-gray-800/60 last:border-b-0 transition-colors ${
-                          isHidden ? 'opacity-40 hover:opacity-70' : 'hover:bg-gray-800/30'
+                        className={`border-b border-gray-800/60 last:border-b-0 transition-colors hover:bg-gray-800/20 ${
+                          isHidden ? 'opacity-30' : ''
                         }`}
                       >
                         <td className="px-4 py-3 max-w-md">
@@ -533,7 +518,7 @@ export default function Home() {
                         </td>
                         <td className="px-4 py-3 text-gray-500 capitalize text-xs">{l.source}</td>
                         <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap">
-                          <div className={isDelisted || isHidden ? 'text-gray-500' : 'text-green-400 font-medium'}>
+                          <div className={isDelisted ? 'text-gray-500' : 'text-green-400 font-medium'}>
                             {fmtMoney(l.asking_price, l.asking_price_text)}
                           </div>
                           {hasPriceChange && l.previous_asking_price != null && (
