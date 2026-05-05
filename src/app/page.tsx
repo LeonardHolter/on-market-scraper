@@ -42,6 +42,12 @@ const SITES: SiteConfig[] = [
   { name: 'Zoom Business Brokers',         source: 'zoom',    phase: 1, url: 'zoombusinessbrokers.com', endpoint: '/api/scrape/zoom' },
 ]
 
+const SOURCE_DOTS: Record<string, string> = {
+  synergy: 'oklch(0.6 0.16 252)',
+  fcbb:    'oklch(0.6 0.15 290)',
+  zoom:    'oklch(0.62 0.14 200)',
+}
+
 interface ScrapeStatus {
   loading: boolean
   error: string | null
@@ -101,7 +107,7 @@ export default function Home() {
   useEffect(() => { refreshStored(null) }, [refreshStored])
 
   const runScrape = useCallback(
-    async (site: SiteConfig, opts: { silent?: boolean } = {}) => {
+    async (site: SiteConfig) => {
       setScrapeStatus((s) => ({ ...s, [site.source]: { ...emptyStatus, loading: true } }))
       try {
         const res = await fetch(site.endpoint, { method: 'POST' })
@@ -146,10 +152,7 @@ export default function Home() {
       const now = Date.now()
       if (now - lastRunRef.current < HOUR_MS) return
       lastRunRef.current = now
-      const cronSafe = SITES.filter(
-        (s) => s.source === 'synergy' || s.source === 'fcbb' || s.source === 'zoom'
-      )
-      for (const site of cronSafe) await runScrape(site, { silent: true })
+      for (const site of SITES) await runScrape(site)
       setLastAutoRun(new Date().toISOString())
     }
     const initial = setTimeout(() => { lastRunRef.current = Date.now() - HOUR_MS; tick() }, 30_000)
@@ -170,10 +173,10 @@ export default function Home() {
   })()
   const msUntilRescrape = Math.max(0, nextRescrapeAt - now)
   const fmtCountdown = (ms: number) => {
-    const totalSec = Math.floor(ms / 1000)
-    const h = Math.floor(totalSec / 3600)
-    const m = Math.floor((totalSec % 3600) / 60)
-    const s = totalSec % 60
+    const t = Math.floor(ms / 1000)
+    const h = Math.floor(t / 3600)
+    const m = Math.floor((t % 3600) / 60)
+    const s = t % 60
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
   }
 
@@ -190,27 +193,31 @@ export default function Home() {
     return latest
   })()
 
-  const filteredByCashFlow = stored.filter((l) => {
-    if (!enabledSources.has(l.source)) return false
-    if (l.cash_flow == null) return false
-    if (minCashFlow <= 0) return true
-    return l.cash_flow >= minCashFlow
-  })
-
   const excludedKeywordList = excludeKeywords.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)
 
-  const visibleListings = filteredByCashFlow.filter((l) => {
+  const visibleListings = stored.filter((l) => {
+    if (!enabledSources.has(l.source)) return false
     if (l.is_sold || l.delisted_at) return false
+    if (l.is_hidden) return false
+    if (l.cash_flow == null) return false
+    if (minCashFlow > 0 && l.cash_flow < minCashFlow) return false
     if (hideFranchises && /\bfranchise[sd]?\b/i.test(l.title)) return false
     if (maxAskingPrice > 0 && l.asking_price != null && l.asking_price > maxAskingPrice) return false
     if (excludedKeywordList.length > 0) {
-      const titleLower = l.title.toLowerCase()
-      if (excludedKeywordList.some((kw) => titleLower.includes(kw))) return false
+      const lower = l.title.toLowerCase()
+      if (excludedKeywordList.some((kw) => lower.includes(kw))) return false
     }
     return true
   })
 
-  const fmtMoney = (n: number | null, fallback: string | null) =>
+  const fmtMoneyCompact = (n: number | null): string => {
+    if (n == null) return '—'
+    if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(n >= 10_000_000 ? 1 : 2).replace(/\.?0+$/, '')}M`
+    if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`
+    return `$${n.toLocaleString()}`
+  }
+
+  const fmtMoneyFull = (n: number | null, fallback: string | null) =>
     n != null ? `$${n.toLocaleString()}` : fallback || '—'
 
   const activity = stored
@@ -222,394 +229,502 @@ export default function Home() {
       return events
     })
     .sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime())
-    .slice(0, 8)
+    .slice(0, 10)
+
+  // ─── CSS variables ────────────────────────────────────────────────────────
+  const css = `
+    :root {
+      --bg:           oklch(0.985 0.002 95);
+      --surface:      #ffffff;
+      --surface-2:    oklch(0.975 0.003 95);
+      --border:       oklch(0.92 0.004 95);
+      --border-strong:oklch(0.86 0.005 95);
+      --text:         oklch(0.18 0.005 250);
+      --text-2:       oklch(0.42 0.008 250);
+      --text-3:       oklch(0.62 0.008 250);
+      --text-4:       oklch(0.78 0.005 250);
+      --accent:       oklch(0.58 0.18 252);
+      --accent-soft:  oklch(0.95 0.04 252);
+      --money:        oklch(0.42 0.13 155);
+      --warn:         oklch(0.62 0.15 65);
+      --danger:       oklch(0.55 0.18 25);
+      --shadow-sm:    0 1px 2px 0 oklch(0.18 0.005 250 / 0.04);
+      --shadow-md:    0 1px 3px 0 oklch(0.18 0.005 250 / 0.06), 0 4px 12px -4px oklch(0.18 0.005 250 / 0.05);
+    }
+    body { background: var(--bg) !important; }
+    .df-page { font-feature-settings: 'ss01','cv11'; letter-spacing: -0.01em; color: var(--text); background: var(--bg); min-height: 100vh; }
+    .df-mono { font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+    .df-num  { font-variant-numeric: tabular-nums; letter-spacing: -0.015em; }
+    .df-table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow-sm); }
+    .df-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+    .df-table thead th { background: var(--surface-2); text-align: left; font-size: 11px; font-weight: 500; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.06em; padding: 13px 20px; border-bottom: 1px solid var(--border); }
+    .df-table tbody td { padding: 16px 20px; vertical-align: middle; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .df-table tbody tr:last-child td { border-bottom: none; }
+    .df-table tbody tr:hover { background: oklch(0.975 0.003 95); }
+    .df-source-dot::before { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 999px; background: var(--dot-color, #aaa); margin-right: 6px; vertical-align: middle; position: relative; top: -1px; }
+    .df-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+    .df-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-sm); }
+    .df-input { background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 13px; font-weight: 500; outline: none; color: var(--text); font-family: inherit; font-variant-numeric: tabular-nums; }
+    .df-input:focus { border-color: var(--accent); }
+    .df-btn-accent { background: var(--accent-soft); color: var(--accent); border: 1px solid transparent; border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 500; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 6px; transition: opacity 150ms; }
+    .df-btn-accent:hover { opacity: 0.8; }
+    .df-btn-ghost { background: var(--surface); color: var(--text-3); border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; font-size: 11px; font-weight: 500; cursor: pointer; font-family: inherit; transition: all 150ms; }
+    .df-btn-ghost:hover { border-color: var(--border-strong); color: var(--text-2); }
+    .df-btn-active { background: var(--accent-soft) !important; color: var(--accent) !important; border-color: transparent !important; }
+    .df-hide-btn { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text-4); cursor: pointer; font-size: 11px; transition: all 150ms; }
+    .df-hide-btn:hover { border-color: var(--border-strong); color: var(--danger); }
+    .df-source-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; cursor: pointer; transition: all 150ms; box-shadow: var(--shadow-sm); text-align: left; width: 100%; }
+    .df-source-card:hover { border-color: var(--border-strong); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+    .df-source-card.active { border-color: var(--accent); background: var(--accent-soft); }
+  `
 
   return (
-    <div className="min-h-screen bg-zinc-950 px-4 py-6 sm:px-6 sm:py-10">
-      <div className="max-w-6xl mx-auto space-y-6 sm:space-y-8">
+    <>
+      <style dangerouslySetInnerHTML={{ __html: css }} />
+      <div className="df-page" style={{ fontFamily: "'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif" }}>
+        <div style={{ maxWidth: 1260, margin: '0 auto', padding: '40px 32px 80px' }}>
 
-        {/* ── Header ── */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-semibold text-white tracking-tight">Deal Flow</h1>
-              <Link
-                href="/find"
-                className="text-xs px-3 py-1 rounded-full border border-zinc-700 bg-zinc-800 text-zinc-300 hover:border-zinc-500 hover:text-white transition-colors"
-              >
-                ✦ Find with AI
-              </Link>
-            </div>
-            <p className="text-sm text-zinc-500 mt-1">
-              Broker listings refreshed daily at 12:00 AM EST.
-              {lastAutoRun && (
-                <span className="ml-2 text-zinc-600">· last run {new Date(lastAutoRun).toLocaleTimeString()}</span>
-              )}
-            </p>
-          </div>
-          <div className="flex items-center gap-8">
-            <div className="text-left sm:text-right">
-              <div className="text-xl sm:text-2xl font-semibold text-white tabular-nums tracking-tight">
-                {fmtCountdown(msUntilRescrape)}
+          {/* ── Header ───────────────────────────────────────────────────── */}
+          <header style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end',
+            paddingBottom: 28, borderBottom: '1px solid var(--border)', marginBottom: 32,
+            flexWrap: 'wrap', gap: 20,
+          }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
+                <div style={{
+                  width: 30, height: 30, borderRadius: 9,
+                  background: 'linear-gradient(135deg, oklch(0.58 0.18 252) 0%, oklch(0.5 0.2 270) 100%)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: 'white', fontSize: 14, fontWeight: 700, flexShrink: 0,
+                  boxShadow: 'var(--shadow-md)',
+                }}>D</div>
+                <h1 style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.025em', margin: 0, color: 'var(--text)' }}>
+                  Deal Flow
+                </h1>
+                <span className="df-pill" style={{ background: 'oklch(0.93 0.06 155)', color: 'oklch(0.38 0.13 155)' }}>
+                  <span style={{ width: 5, height: 5, borderRadius: 999, background: 'oklch(0.52 0.16 155)', display: 'inline-block' }} />
+                  Live
+                </span>
+                <Link
+                  href="/find"
+                  style={{
+                    fontSize: 12, fontWeight: 500, color: 'var(--accent)',
+                    background: 'var(--accent-soft)', borderRadius: 20,
+                    padding: '4px 12px', textDecoration: 'none',
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    border: '1px solid transparent',
+                  }}
+                >
+                  ✦ Find with AI
+                </Link>
               </div>
-              <div className="text-[11px] text-zinc-500 uppercase tracking-widest mt-0.5">Next refresh</div>
-            </div>
-            <div className="text-left sm:text-right">
-              <div className="text-xl sm:text-2xl font-semibold text-white tracking-tight">{totalStored.toLocaleString()}</div>
-              <div className="text-[11px] text-zinc-500 uppercase tracking-widest mt-0.5">Stored</div>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Source cards ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-          {SITES.map((site) => {
-            const status = scrapeStatus[site.source]
-            const count = bySource[site.source] || 0
-            const isLoading = status?.loading
-            const hasError = !!status?.error
-            const isEnabled = enabledSources.has(site.source)
-            return (
-              <button
-                key={site.name}
-                onClick={() => runScrape(site)}
-                disabled={isLoading}
-                className={`text-left rounded-lg p-3 sm:p-4 flex flex-col gap-2 transition-all disabled:cursor-not-allowed border ${
-                  !isEnabled
-                    ? 'bg-zinc-900 border-zinc-800 opacity-40'
-                    : 'bg-zinc-900 border-zinc-800 hover:border-zinc-600 hover:bg-zinc-800/80'
-                }`}
-              >
-                <p className="text-xs sm:text-sm font-medium text-white leading-snug">{site.name}</p>
-                <p className="text-[11px] text-zinc-500 truncate hidden sm:block">{site.url}</p>
-                <div className="mt-auto flex items-center gap-1.5">
-                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                    isLoading ? 'bg-blue-400 animate-pulse' : hasError ? 'bg-red-500' : count > 0 ? 'bg-emerald-500' : 'bg-zinc-700'
-                  }`} />
-                  <span className="text-[11px] text-zinc-500">
-                    {isLoading ? 'Scraping…' : hasError ? 'Error' : count > 0 ? `${count.toLocaleString()} listings` : 'Click to scrape'}
+              <p style={{ fontSize: 13, color: 'var(--text-3)', margin: 0 }}>
+                Broker listings refreshed daily at 12:00 AM EST
+                {lastAutoRun && (
+                  <span style={{ color: 'var(--text-4)', marginLeft: 6 }}>
+                    · last run {new Date(lastAutoRun).toLocaleTimeString()}
                   </span>
-                </div>
-              </button>
-            )
-          })}
-        </div>
-
-        {/* ── Activity feed ── */}
-        {activity.length > 0 && (
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-            <h3 className="text-[11px] font-medium text-zinc-500 uppercase tracking-widest mb-3">Recent activity</h3>
-            <div className="space-y-2">
-              {activity.map((e, i) => (
-                <div key={i} className="flex items-start gap-3 text-xs">
-                  <span className={`mt-0.5 shrink-0 px-1.5 py-0.5 rounded text-[9px] font-semibold tracking-wider uppercase ${
-                    e.kind === 'sold'
-                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                      : e.kind === 'delisted'
-                      ? 'bg-red-500/10 text-red-400 border border-red-500/20'
-                      : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                  }`}>
-                    {e.kind === 'sold' ? 'Sold' : e.kind === 'delisted' ? 'Delisted' : 'Price'}
-                  </span>
-                  <div className="flex-1 text-zinc-300 min-w-0 truncate">
-                    <span className="text-zinc-600 mr-1">{e.listing.source}</span>
-                    {e.listing.title}
-                    {e.kind === 'price' && e.listing.previous_asking_price != null && e.listing.asking_price != null && (
-                      <span className="ml-2 text-zinc-600">
-                        ${e.listing.previous_asking_price.toLocaleString()} →
-                        <span className="text-blue-400 ml-1">${e.listing.asking_price.toLocaleString()}</span>
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-zinc-600 whitespace-nowrap">{new Date(e.ts).toLocaleDateString()}</span>
-                </div>
-              ))}
+                )}
+              </p>
             </div>
-          </div>
-        )}
 
-        {/* ── Filters ── */}
-        <div className="space-y-2.5">
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center text-xs">
-            <div className="flex items-center gap-2">
-              <span className="text-zinc-500 shrink-0">Min cash flow</span>
-              <div className="flex items-center gap-1">
-                <span className="text-zinc-600">$</span>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 32 }}>
+              <div style={{ textAlign: 'right' }}>
+                <div className="df-mono" style={{ fontSize: 28, fontWeight: 500, letterSpacing: '-0.03em', color: 'var(--text)', lineHeight: 1 }}>
+                  {fmtCountdown(msUntilRescrape)}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: 5 }}>
+                  Next refresh
+                </div>
+              </div>
+              <div style={{ width: 1, height: 40, background: 'var(--border)' }} />
+              <div style={{ textAlign: 'right' }}>
+                <div className="df-num" style={{ fontSize: 28, fontWeight: 500, letterSpacing: '-0.03em', color: 'var(--text)', lineHeight: 1 }}>
+                  {totalStored.toLocaleString()}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: 5 }}>
+                  Stored
+                </div>
+              </div>
+            </div>
+          </header>
+
+          {/* ── Source cards ─────────────────────────────────────────────── */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 24 }}>
+            {SITES.map((site) => {
+              const status = scrapeStatus[site.source]
+              const count = bySource[site.source] || 0
+              const isLoading = status?.loading
+              const isEnabled = enabledSources.has(site.source)
+              return (
+                <div key={site.source} style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                  <button
+                    className={`df-source-card${isEnabled ? ' active' : ''}`}
+                    onClick={() =>
+                      setEnabledSources((prev) => {
+                        const next = new Set(prev)
+                        if (next.has(site.source)) next.delete(site.source)
+                        else next.add(site.source)
+                        return next
+                      })
+                    }
+                    style={{ opacity: isEnabled ? 1 : 0.45 }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', letterSpacing: '-0.01em' }}>{site.name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-4)', marginTop: 2 }}>{site.url}</div>
+                      </div>
+                      <div style={{
+                        width: 7, height: 7, borderRadius: 999, flexShrink: 0, marginLeft: 10, marginTop: 3,
+                        background: isLoading ? 'var(--accent)' : count > 0 ? 'oklch(0.52 0.16 155)' : 'var(--text-4)',
+                      }} />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                      <div className="df-num" style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.025em', color: 'var(--text)' }}>
+                        {isLoading ? '…' : count.toLocaleString()}
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--text-3)' }}>active listings</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => runScrape(site)}
+                    disabled={isLoading}
+                    style={{
+                      marginTop: 6, padding: '6px 0', fontSize: 11, color: isLoading ? 'var(--accent)' : 'var(--text-4)',
+                      background: 'none', border: 'none', cursor: isLoading ? 'default' : 'pointer',
+                      fontFamily: 'inherit', textAlign: 'center', letterSpacing: '-0.01em',
+                    }}
+                  >
+                    {isLoading ? 'Scraping…' : status?.error ? '⚠ Error — re-scrape' : '↺ Re-scrape'}
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* ── Errors ───────────────────────────────────────────────────── */}
+          {(activeStatus?.error || storedError) && (
+            <div style={{
+              background: 'oklch(0.97 0.03 25)', border: '1px solid oklch(0.88 0.05 25)',
+              borderRadius: 10, padding: '12px 16px', marginBottom: 16,
+              fontSize: 13, color: 'var(--danger)',
+            }}>
+              {activeStatus?.error && <div><strong>Scrape error:</strong> {activeStatus.error}</div>}
+              {storedError && <div><strong>Database error:</strong> {storedError}</div>}
+            </div>
+          )}
+
+          {/* ── Filter bar ───────────────────────────────────────────────── */}
+          <div className="df-card" style={{ padding: '12px 18px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
+            {/* Min cash flow */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 12, color: 'var(--text-3)', whiteSpace: 'nowrap' }}>Min cash flow</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '5px 10px' }}>
+                <span style={{ color: 'var(--text-4)', fontSize: 12 }}>$</span>
                 <input
                   type="number"
                   value={cashFlowInput}
                   onChange={(e) => {
                     setCashFlowInput(e.target.value)
-                    const n = parseInt(e.target.value.replace(/,/g, ''), 10)
+                    const n = parseInt(e.target.value, 10)
                     if (!isNaN(n)) setMinCashFlow(n)
                     else if (e.target.value === '') setMinCashFlow(0)
                   }}
                   placeholder="0"
-                  className="w-28 bg-zinc-900 border border-zinc-700 rounded px-2 py-1.5 text-zinc-200 text-xs focus:outline-none focus:border-zinc-500 placeholder-zinc-700"
+                  style={{ width: 80, border: 'none', background: 'transparent', fontSize: 13, fontWeight: 500, outline: 'none', color: 'var(--text)', fontFamily: 'inherit', fontVariantNumeric: 'tabular-nums' }}
                 />
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-zinc-500 shrink-0">Max asking price</span>
-              <div className="flex items-center gap-1">
-                <span className="text-zinc-600">$</span>
+
+            {/* Max asking */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 12, color: 'var(--text-3)', whiteSpace: 'nowrap' }}>Max asking</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '5px 10px' }}>
+                <span style={{ color: 'var(--text-4)', fontSize: 12 }}>$</span>
                 <input
                   type="number"
                   value={maxPriceInput}
                   onChange={(e) => {
                     setMaxPriceInput(e.target.value)
-                    const n = parseInt(e.target.value.replace(/,/g, ''), 10)
+                    const n = parseInt(e.target.value, 10)
                     if (!isNaN(n)) setMaxAskingPrice(n)
                     else if (e.target.value === '') setMaxAskingPrice(0)
                   }}
                   placeholder="∞"
-                  className="w-32 bg-zinc-900 border border-zinc-700 rounded px-2 py-1.5 text-zinc-200 text-xs focus:outline-none focus:border-zinc-500 placeholder-zinc-700"
+                  style={{ width: 90, border: 'none', background: 'transparent', fontSize: 13, fontWeight: 500, outline: 'none', color: 'var(--text)', fontFamily: 'inherit', fontVariantNumeric: 'tabular-nums' }}
                 />
               </div>
             </div>
+
+            {/* Hide franchises */}
             <button
+              className={`df-btn-accent${!hideFranchises ? '' : ''}`}
               onClick={() => setHideFranchises((v) => !v)}
-              className={`self-start sm:self-auto px-3 py-1.5 rounded border text-xs transition-colors ${
-                hideFranchises
-                  ? 'border-blue-500/40 bg-blue-500/10 text-blue-400'
-                  : 'border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-300'
-              }`}
+              style={hideFranchises ? {} : { background: 'var(--surface-2)', color: 'var(--text-3)', border: '1px solid var(--border)' }}
             >
-              {hideFranchises ? '✓ ' : ''}Hide franchises
+              <svg width="11" height="11" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0 }}>
+                {hideFranchises
+                  ? <path d="M2 6l3 3 5-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                  : <path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                }
+              </svg>
+              {hideFranchises ? 'Hiding franchises' : 'Show franchises'}
             </button>
-            {(minCashFlow > 0 || maxAskingPrice > 0) && (
-              <span className="text-zinc-600 text-[11px]">{visibleListings.length} of {stored.length} shown</span>
-            )}
-          </div>
 
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-zinc-500 shrink-0">Exclude keywords</span>
-            <input
-              type="text"
-              value={excludeKeywords}
-              onChange={(e) => setExcludeKeywords(e.target.value)}
-              placeholder="e.g. laundromat, gas station, daycare"
-              className="flex-1 bg-zinc-900 border border-zinc-700 rounded px-2 py-1.5 text-zinc-200 text-xs focus:outline-none focus:border-zinc-500 placeholder-zinc-700"
-            />
-            {excludedKeywordList.length > 0 && (
-              <span className="text-zinc-600 shrink-0">{excludedKeywordList.length} active</span>
-            )}
-            {excludeKeywords && (
-              <button onClick={() => setExcludeKeywords('')} className="text-zinc-600 hover:text-zinc-400 px-1">✕</button>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2 text-xs flex-wrap">
-            <span className="text-zinc-500 shrink-0">Sources</span>
-            {SITES.map((s) => {
-              const isOn = enabledSources.has(s.source)
-              return (
-                <button
-                  key={s.source}
-                  onClick={() =>
-                    setEnabledSources((prev) => {
-                      const next = new Set(prev)
-                      if (next.has(s.source)) next.delete(s.source)
-                      else next.add(s.source)
-                      return next
-                    })
-                  }
-                  className={`px-2.5 py-1 rounded border transition-colors text-[11px] ${
-                    isOn
-                      ? 'border-blue-500/40 bg-blue-500/10 text-blue-400'
-                      : 'border-zinc-800 text-zinc-600 line-through hover:border-zinc-700 hover:text-zinc-500'
-                  }`}
-                >
-                  {s.source} {isOn && <span className="text-zinc-600">({bySource[s.source] || 0})</span>}
-                </button>
-              )
-            })}
-            <span className="text-zinc-700">·</span>
-            <button onClick={() => setEnabledSources(new Set(SITES.map((s) => s.source)))} className="text-zinc-600 hover:text-zinc-300 transition-colors">All</button>
-            <button onClick={() => setEnabledSources(new Set())} className="text-zinc-600 hover:text-zinc-300 transition-colors">None</button>
-          </div>
-        </div>
-
-        {/* ── Errors ── */}
-        {activeStatus?.error && (
-          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 text-sm text-red-400">
-            <strong className="font-medium">Scrape error: </strong>{activeStatus.error}
-          </div>
-        )}
-        {storedError && (
-          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 text-sm text-red-400">
-            <strong className="font-medium">Database error: </strong>{storedError}
-          </div>
-        )}
-
-        {/* ── Listings ── */}
-        <div className="space-y-3">
-          <div className="flex items-baseline justify-between flex-wrap gap-2">
-            <h2 className="text-sm font-medium text-zinc-400 uppercase tracking-widest">
-              {enabledSources.size === SITES.length
-                ? 'All listings'
-                : enabledSources.size === 1
-                ? SITES.find((s) => enabledSources.has(s.source))?.name ?? 'Listings'
-                : `${enabledSources.size} sources`}
-              <span className="ml-2 text-zinc-600 normal-case font-normal tracking-normal">{visibleListings.length} results</span>
-            </h2>
-            <div className="flex items-center gap-3 text-[11px] text-zinc-600 flex-wrap">
-              {activeStatus?.storage && (
-                <span>
-                  <span className="text-emerald-500">+{activeStatus.storage.inserted} new</span>
-                  {activeStatus.storage.updated > 0 && <span> · {activeStatus.storage.updated} updated</span>}
-                  {activeStatus.storage.priceChanged ? <span className="text-blue-400"> · {activeStatus.storage.priceChanged} price chg</span> : null}
-                  {activeStatus.storage.newlySold ? <span className="text-amber-500"> · {activeStatus.storage.newlySold} sold</span> : null}
-                  {activeStatus.storage.delisted ? <span className="text-red-400"> · {activeStatus.storage.delisted} delisted</span> : null}
-                </span>
+            {/* Exclude keywords */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 12, color: 'var(--text-3)', whiteSpace: 'nowrap' }}>Exclude</span>
+              <input
+                type="text"
+                value={excludeKeywords}
+                onChange={(e) => setExcludeKeywords(e.target.value)}
+                placeholder="keywords, comma-separated"
+                style={{ width: 180, border: '1px solid var(--border)', background: 'var(--surface-2)', borderRadius: 8, padding: '5px 10px', fontSize: 12, outline: 'none', color: 'var(--text)', fontFamily: 'inherit' }}
+              />
+              {excludeKeywords && (
+                <button onClick={() => setExcludeKeywords('')} style={{ fontSize: 11, color: 'var(--text-4)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>✕</button>
               )}
-              {activeStatus?.scrapedAt && <span>Scraped {new Date(activeStatus.scrapedAt).toLocaleString()}</span>}
+            </div>
+
+            {/* Count */}
+            <div style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-4)' }}>
+              {visibleListings.length.toLocaleString()} results
             </div>
           </div>
 
-          {/* Mobile cards */}
-          <div className="md:hidden space-y-2">
-            {storedLoading && stored.length === 0 ? (
-              <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-8 text-center text-zinc-600 text-xs">Loading…</div>
-            ) : visibleListings.length === 0 ? (
-              <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-8 text-center text-zinc-600 text-xs">
-                {stored.length === 0 ? 'No listings yet — tap a source to scrape.' : 'No listings match your filters.'}
+          {/* ── Listings header ───────────────────────────────────────────── */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', margin: '24px 0 12px', flexWrap: 'wrap', gap: 8 }}>
+            <h2 style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>
+              All listings
+              <span style={{ color: 'var(--text-4)', textTransform: 'none', letterSpacing: 0, fontWeight: 400, marginLeft: 8 }}>
+                {visibleListings.length} results
+              </span>
+            </h2>
+            {activeStatus?.storage && (
+              <div style={{ fontSize: 11, color: 'var(--text-4)' }}>
+                {activeStatus.storage.inserted > 0 && <span style={{ color: 'oklch(0.42 0.13 155)' }}>+{activeStatus.storage.inserted} new</span>}
+                {activeStatus.storage.updated > 0 && <span> · {activeStatus.storage.updated} updated</span>}
+                {activeStatus.storage.priceChanged ? <span style={{ color: 'var(--accent)' }}> · {activeStatus.storage.priceChanged} price chg</span> : null}
+                {activeStatus.scrapedAt && <span> · scraped {new Date(activeStatus.scrapedAt).toLocaleTimeString()}</span>}
               </div>
-            ) : (
-              visibleListings.map((l) => {
-                const isSold = !!l.is_sold
-                const isDelisted = !!l.delisted_at
-                const isHidden = !!l.is_hidden
-                const hasPriceChange = !!l.price_changed_at
-                return (
-                  <div key={l.id} className={`bg-zinc-900 border border-zinc-800 rounded-lg p-4 ${isHidden ? 'opacity-30' : ''}`}>
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
-                          {isSold && <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">SOLD</span>}
-                          {isDelisted && <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-red-500/10 text-red-400 border border-red-500/20">DELISTED</span>}
-                          {hasPriceChange && <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">PRICE Δ</span>}
-                          <span className="text-[10px] text-zinc-600 capitalize">{l.source}</span>
-                        </div>
-                        {l.source_listing_url ? (
-                          <a href={l.source_listing_url} target="_blank" rel="noopener noreferrer"
-                            className={`text-sm font-medium leading-snug hover:text-blue-400 transition-colors ${isHidden ? 'text-zinc-600 line-through' : isDelisted ? 'text-zinc-500 line-through' : isSold ? 'text-amber-400' : 'text-white'}`}>
-                            {l.title}
-                          </a>
-                        ) : (
-                          <span className={`text-sm font-medium ${isHidden ? 'text-zinc-600 line-through' : 'text-white'}`}>{l.title}</span>
-                        )}
-                        {l.location && <p className="text-[11px] text-zinc-500 mt-0.5">{l.location}</p>}
-                      </div>
-                      <button
-                        onClick={() => toggleHidden(l)}
-                        disabled={hidingId === l.id}
-                        className={`shrink-0 text-[11px] px-2 py-1 rounded border transition-colors disabled:opacity-40 ${
-                          isHidden ? 'border-zinc-700 text-zinc-500 hover:text-zinc-300' : 'border-zinc-800 text-zinc-600 hover:border-red-500/30 hover:text-red-400'
-                        }`}
-                      >
-                        {isHidden ? '↩' : '✕'}
-                      </button>
-                    </div>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-[11px] tabular-nums">
-                      <span className="text-zinc-500">Asking <span className={`font-medium ${isDelisted ? 'text-zinc-600' : 'text-emerald-400'}`}>{fmtMoney(l.asking_price, l.asking_price_text)}</span></span>
-                      <span className="text-zinc-500">Revenue <span className="text-zinc-300">{fmtMoney(l.annual_revenue, l.annual_revenue_text)}</span></span>
-                      <span className="text-zinc-500">Cash flow <span className="text-zinc-300">{fmtMoney(l.cash_flow, l.cash_flow_text)}</span></span>
-                    </div>
-                  </div>
-                )
-              })
             )}
           </div>
 
-          {/* Desktop table */}
-          <div className="hidden md:block border border-zinc-800 rounded-lg overflow-hidden">
-            <table className="w-full text-sm">
+          {/* ── Desktop table ─────────────────────────────────────────────── */}
+          <div className="df-table-wrap" style={{ display: 'none' }} id="df-desktop-table">
+            <table className="df-table">
               <thead>
-                <tr className="bg-zinc-900 border-b border-zinc-800 text-[10px] uppercase tracking-widest text-zinc-500">
-                  <th className="text-left px-4 py-3 font-medium">Business</th>
-                  <th className="text-left px-4 py-3 font-medium">Source</th>
-                  <th className="text-right px-4 py-3 font-medium">Asking</th>
-                  <th className="text-right px-4 py-3 font-medium">Revenue</th>
-                  <th className="text-right px-4 py-3 font-medium">Cash Flow</th>
-                  <th className="text-right px-4 py-3 font-medium">Added</th>
-                  <th className="px-4 py-3" />
+                <tr>
+                  <th style={{ width: '44%' }}>Business</th>
+                  <th>Source</th>
+                  <th style={{ textAlign: 'right' }}>Asking</th>
+                  <th style={{ textAlign: 'right' }}>Revenue</th>
+                  <th style={{ textAlign: 'right' }}>Cash Flow</th>
+                  <th style={{ textAlign: 'right' }}>Added</th>
+                  <th style={{ width: 40 }} />
                 </tr>
               </thead>
-              <tbody className="bg-zinc-950">
+              <tbody>
                 {storedLoading && stored.length === 0 ? (
-                  <tr><td colSpan={7} className="px-4 py-10 text-center text-zinc-600 text-xs">Loading…</td></tr>
+                  <tr><td colSpan={7} style={{ padding: '48px 20px', textAlign: 'center', color: 'var(--text-4)', fontSize: 13 }}>Loading…</td></tr>
                 ) : visibleListings.length === 0 ? (
-                  <tr><td colSpan={7} className="px-4 py-10 text-center text-zinc-600 text-xs">
+                  <tr><td colSpan={7} style={{ padding: '48px 20px', textAlign: 'center', color: 'var(--text-4)', fontSize: 13 }}>
                     {stored.length === 0 ? 'No listings yet — click a source above to scrape.' : 'No listings match your filters.'}
                   </td></tr>
-                ) : (
-                  visibleListings.map((l) => {
-                    const isSold = !!l.is_sold
-                    const isDelisted = !!l.delisted_at
-                    const isHidden = !!l.is_hidden
-                    const hasPriceChange = !!l.price_changed_at
-                    const titleColor = isHidden ? 'text-zinc-600 line-through' : isDelisted ? 'text-zinc-500 line-through' : isSold ? 'text-amber-400' : 'text-white'
-                    return (
-                      <tr key={l.id} className={`border-b border-zinc-800/60 last:border-b-0 hover:bg-zinc-900 transition-colors ${isHidden ? 'opacity-30' : ''}`}>
-                        <td className="px-4 py-3 max-w-md">
-                          <div className="flex items-start gap-2">
-                            <div className="flex flex-col gap-1 mt-0.5 shrink-0">
-                              {isSold && <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">SOLD</span>}
-                              {isDelisted && <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-red-500/10 text-red-400 border border-red-500/20">DELISTED</span>}
-                              {hasPriceChange && <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">PRICE Δ</span>}
-                            </div>
-                            <div className="min-w-0">
-                              {l.source_listing_url ? (
-                                <a href={l.source_listing_url} target="_blank" rel="noopener noreferrer"
-                                  className={`hover:text-blue-400 transition-colors line-clamp-2 ${titleColor}`} title={l.title}>
-                                  {l.title}
-                                </a>
-                              ) : (
-                                <span className={`line-clamp-2 ${titleColor}`}>{l.title}</span>
-                              )}
-                              {(l.location || l.status) && (
-                                <div className="text-[11px] text-zinc-500 mt-0.5">
-                                  {l.status && <span className="mr-2">{l.status}</span>}
-                                  {l.location}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-zinc-500 capitalize text-xs">{l.source}</td>
-                        <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap">
-                          <div className={isDelisted ? 'text-zinc-600' : 'text-emerald-400 font-medium'}>{fmtMoney(l.asking_price, l.asking_price_text)}</div>
-                          {hasPriceChange && l.previous_asking_price != null && (
-                            <div className="text-[10px] text-zinc-600 line-through">${l.previous_asking_price.toLocaleString()}</div>
+                ) : visibleListings.map((l) => {
+                  const hasPriceChange = !!l.price_changed_at
+                  const dotColor = SOURCE_DOTS[l.source] || '#aaa'
+                  return (
+                    <tr key={l.id}>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                          {hasPriceChange && (
+                            <span className="df-pill" style={{ background: 'var(--accent-soft)', color: 'var(--accent)', flexShrink: 0, marginTop: 1, padding: '2px 7px', fontSize: 9 }}>
+                              Price ↓
+                            </span>
                           )}
-                        </td>
-                        <td className="px-4 py-3 text-right text-zinc-300 tabular-nums whitespace-nowrap">{fmtMoney(l.annual_revenue, l.annual_revenue_text)}</td>
-                        <td className="px-4 py-3 text-right text-zinc-300 tabular-nums whitespace-nowrap">{fmtMoney(l.cash_flow, l.cash_flow_text)}</td>
-                        <td className="px-4 py-3 text-right text-zinc-600 text-xs whitespace-nowrap">{new Date(l.first_seen_at).toLocaleDateString()}</td>
-                        <td className="px-4 py-3 text-right">
-                          <button
-                            onClick={() => toggleHidden(l)}
-                            disabled={hidingId === l.id}
-                            className={`text-[11px] px-2 py-1 rounded border transition-colors disabled:opacity-40 ${
-                              isHidden
-                                ? 'border-zinc-700 text-zinc-500 hover:text-zinc-300'
-                                : 'border-zinc-800 text-zinc-600 hover:border-red-500/30 hover:text-red-400'
-                            }`}
-                          >
-                            {isHidden ? '↩' : '✕'}
-                          </button>
-                        </td>
-                      </tr>
-                    )
-                  })
-                )}
+                          <div style={{ minWidth: 0 }}>
+                            <a
+                              href={l.source_listing_url}
+                              target="_blank" rel="noopener noreferrer"
+                              style={{ fontSize: 13, fontWeight: 500, letterSpacing: '-0.01em', color: 'var(--text)', display: 'block', lineHeight: 1.45 }}
+                              title={l.title}
+                            >
+                              {l.title}
+                            </a>
+                            {l.location && (
+                              <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>{l.location}</div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span
+                          className="df-source-dot"
+                          style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 500, '--dot-color': dotColor } as React.CSSProperties}
+                        >
+                          {l.source}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <div className="df-num" style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', letterSpacing: '-0.02em' }}>
+                          {fmtMoneyCompact(l.asking_price)}
+                        </div>
+                        {hasPriceChange && l.previous_asking_price != null && (
+                          <div className="df-num" style={{ fontSize: 11, color: 'var(--text-4)', textDecoration: 'line-through', marginTop: 2 }}>
+                            {fmtMoneyCompact(l.previous_asking_price)}
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <span className="df-num" style={{ fontSize: 13, color: 'var(--text-2)' }}>
+                          {fmtMoneyFull(l.annual_revenue, l.annual_revenue_text)}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <span className="df-num" style={{ fontSize: 13, color: 'var(--money)', fontWeight: 600 }}>
+                          {fmtMoneyFull(l.cash_flow, l.cash_flow_text)}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <span className="df-num" style={{ fontSize: 12, color: 'var(--text-4)' }}>
+                          {new Date(l.first_seen_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <button
+                          className="df-hide-btn"
+                          onClick={() => toggleHidden(l)}
+                          disabled={hidingId === l.id}
+                          title="Hide listing"
+                        >
+                          <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                            <path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+                          </svg>
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
-        </div>
 
+          {/* ── Mobile cards ──────────────────────────────────────────────── */}
+          <div id="df-mobile-cards">
+            {storedLoading && stored.length === 0 ? (
+              <div className="df-card" style={{ padding: '40px 20px', textAlign: 'center', fontSize: 13, color: 'var(--text-4)' }}>Loading…</div>
+            ) : visibleListings.length === 0 ? (
+              <div className="df-card" style={{ padding: '40px 20px', textAlign: 'center', fontSize: 13, color: 'var(--text-4)' }}>
+                {stored.length === 0 ? 'No listings yet — tap a source to scrape.' : 'No listings match your filters.'}
+              </div>
+            ) : visibleListings.map((l) => {
+              const hasPriceChange = !!l.price_changed_at
+              const dotColor = SOURCE_DOTS[l.source] || '#aaa'
+              return (
+                <div key={l.id} className="df-card" style={{ padding: 16, marginBottom: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
+                        {hasPriceChange && (
+                          <span className="df-pill" style={{ background: 'var(--accent-soft)', color: 'var(--accent)', fontSize: 9 }}>Price ↓</span>
+                        )}
+                        <span
+                          className="df-source-dot"
+                          style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 500, '--dot-color': dotColor } as React.CSSProperties}
+                        >
+                          {l.source}
+                        </span>
+                      </div>
+                      <a
+                        href={l.source_listing_url}
+                        target="_blank" rel="noopener noreferrer"
+                        style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)', lineHeight: 1.4, display: 'block' }}
+                      >
+                        {l.title}
+                      </a>
+                      {l.location && (
+                        <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 4 }}>{l.location}</div>
+                      )}
+                    </div>
+                    <button
+                      className="df-hide-btn"
+                      onClick={() => toggleHidden(l)}
+                      disabled={hidingId === l.id}
+                      style={{ flexShrink: 0 }}
+                    >
+                      <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                        <path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+                      </svg>
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 20px', marginTop: 12 }}>
+                    <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
+                      Asking <span className="df-num" style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{fmtMoneyCompact(l.asking_price)}</span>
+                    </span>
+                    <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
+                      Revenue <span className="df-num" style={{ color: 'var(--text-2)' }}>{fmtMoneyFull(l.annual_revenue, l.annual_revenue_text)}</span>
+                    </span>
+                    <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
+                      Cash flow <span className="df-num" style={{ fontWeight: 600, color: 'var(--money)' }}>{fmtMoneyFull(l.cash_flow, l.cash_flow_text)}</span>
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Responsive: swap table/cards via media query */}
+          <style>{`
+            @media (min-width: 860px) {
+              #df-desktop-table { display: block !important; }
+              #df-mobile-cards  { display: none !important; }
+            }
+          `}</style>
+
+          {/* ── Recent activity ───────────────────────────────────────────── */}
+          {activity.length > 0 && (
+            <>
+              <h2 style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '44px 0 12px' }}>
+                Recent activity
+              </h2>
+              <div className="df-card" style={{ padding: 6 }}>
+                {activity.map((e, i) => (
+                  <div key={i} style={{
+                    display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px',
+                    borderBottom: i < activity.length - 1 ? '1px solid var(--border)' : 'none',
+                    flexWrap: 'wrap',
+                  }}>
+                    <span className="df-pill" style={{
+                      background: e.kind === 'sold' ? 'oklch(0.96 0.04 65)' : e.kind === 'delisted' ? 'oklch(0.96 0.04 25)' : 'var(--accent-soft)',
+                      color: e.kind === 'sold' ? 'var(--warn)' : e.kind === 'delisted' ? 'var(--danger)' : 'var(--accent)',
+                      flexShrink: 0,
+                    }}>
+                      {e.kind}
+                    </span>
+                    <span style={{ fontSize: 13, color: 'var(--text)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                      {e.listing.title}
+                    </span>
+                    {e.kind === 'price' && e.listing.previous_asking_price != null && e.listing.asking_price != null && (
+                      <span className="df-num" style={{ fontSize: 12, color: 'var(--text-3)', flexShrink: 0 }}>
+                        {fmtMoneyCompact(e.listing.previous_asking_price)}
+                        <span style={{ color: 'var(--text-4)', margin: '0 4px' }}>→</span>
+                        <span style={{ color: 'var(--accent)' }}>{fmtMoneyCompact(e.listing.asking_price)}</span>
+                      </span>
+                    )}
+                    <span style={{ fontSize: 11, color: 'var(--text-4)', flexShrink: 0, minWidth: 60, textAlign: 'right' }}>
+                      {new Date(e.ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+        </div>
       </div>
-    </div>
+    </>
   )
 }
