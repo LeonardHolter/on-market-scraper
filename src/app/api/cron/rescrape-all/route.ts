@@ -12,6 +12,7 @@ export const maxDuration = 300
 const SOURCES = [
   { name: 'synergy', endpoint: '/api/scrape/synergy', method: 'POST' as const },
   { name: 'businessesforsale', endpoint: '/api/scrape/businessesforsale', method: 'POST' as const },
+  { name: 'fcbb', endpoint: '/api/scrape/fcbb', method: 'POST' as const },
   // Bateson disabled by default in cron because it requires a browser window.
   // Re-enable once cookies are persisted and headless succeeds.
   // { name: 'bateson', endpoint: '/api/scrape/bateson', method: 'POST' },

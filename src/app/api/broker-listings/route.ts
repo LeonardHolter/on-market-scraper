@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
 
   // Per-source counts. Use a HEAD count per known source so we never get cut
   // off by Supabase's default 1000-row limit on regular SELECTs.
-  const knownSources = ['synergy', 'bateson', 'businessesforsale']
+  const knownSources = ['synergy', 'bateson', 'businessesforsale', 'fcbb']
   const bySource: Record<string, number> = {}
   await Promise.all(
     knownSources.map(async (src) => {
