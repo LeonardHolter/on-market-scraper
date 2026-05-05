@@ -59,7 +59,6 @@ interface ScrapeStatus {
 }
 
 const emptyStatus: ScrapeStatus = { loading: false, error: null, storage: null, scrapedAt: null }
-
 const HOUR_MS = 60 * 60 * 1000
 
 export default function Home() {
@@ -226,25 +225,25 @@ export default function Home() {
     .slice(0, 8)
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-6 sm:px-6 sm:py-10">
+    <div className="min-h-screen bg-green-950 px-4 py-6 sm:px-6 sm:py-10">
       <div className="max-w-6xl mx-auto space-y-6 sm:space-y-8">
 
         {/* ── Header ── */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-green-900 tracking-tight">Scraper</h1>
+              <h1 className="text-2xl font-bold text-white tracking-tight">Scraper</h1>
               <Link
                 href="/find"
-                className="text-xs px-3 py-1 rounded-full border border-green-700 bg-green-50 text-green-800 hover:bg-green-100 transition-colors"
+                className="text-xs px-3 py-1 rounded-full border border-green-600 bg-green-900 text-green-300 hover:bg-green-800 transition-colors"
               >
                 ✨ Find with AI
               </Link>
             </div>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-sm text-green-600 mt-1">
               On-market broker sources rescraped daily at 12:00 AM EST.
               {lastAutoRun && (
-                <span className="ml-2 text-gray-400">
+                <span className="ml-2 text-green-700">
                   · last auto-run {new Date(lastAutoRun).toLocaleTimeString()}
                 </span>
               )}
@@ -252,14 +251,14 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-6 sm:gap-8">
             <div className="text-left sm:text-right">
-              <div className="text-xl sm:text-2xl font-bold text-green-900 tabular-nums">
+              <div className="text-xl sm:text-2xl font-bold text-white tabular-nums">
                 {fmtCountdown(msUntilRescrape)}
               </div>
-              <div className="text-[11px] text-gray-400 uppercase tracking-wider">Next rescrape</div>
+              <div className="text-[11px] text-green-600 uppercase tracking-wider">Next rescrape</div>
             </div>
             <div className="text-left sm:text-right">
-              <div className="text-xl sm:text-2xl font-bold text-green-900">{totalStored.toLocaleString()}</div>
-              <div className="text-[11px] text-gray-400 uppercase tracking-wider">Total stored</div>
+              <div className="text-xl sm:text-2xl font-bold text-white">{totalStored.toLocaleString()}</div>
+              <div className="text-[11px] text-green-600 uppercase tracking-wider">Total stored</div>
             </div>
           </div>
         </div>
@@ -277,24 +276,24 @@ export default function Home() {
                 key={site.name}
                 onClick={() => runScrape(site)}
                 disabled={isLoading}
-                className={`text-left bg-white border rounded-xl p-3 sm:p-4 flex flex-col gap-2 sm:gap-3 transition-all disabled:cursor-not-allowed shadow-sm ${
+                className={`text-left bg-green-900 border rounded-xl p-3 sm:p-4 flex flex-col gap-2 sm:gap-3 transition-colors disabled:cursor-not-allowed ${
                   !isEnabled
-                    ? 'border-gray-200 opacity-50 hover:opacity-75'
-                    : 'border-green-100 hover:border-green-400 hover:shadow-md'
+                    ? 'border-green-900 opacity-40 hover:opacity-60'
+                    : 'border-green-800 hover:border-green-600'
                 }`}
               >
-                <span className="text-[10px] font-medium text-green-700 uppercase tracking-widest">
+                <span className="text-[10px] font-medium text-green-500 uppercase tracking-widest">
                   Phase {site.phase}
                 </span>
-                <p className="text-xs sm:text-sm font-semibold text-gray-900 leading-snug">{site.name}</p>
-                <p className="text-[11px] text-gray-400 truncate hidden sm:block">{site.url}</p>
+                <p className="text-xs sm:text-sm font-semibold text-white leading-snug">{site.name}</p>
+                <p className="text-[11px] text-green-600 truncate hidden sm:block">{site.url}</p>
                 <div className="mt-auto flex items-center gap-1.5">
                   <span
                     className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                      isLoading ? 'bg-green-500 animate-pulse' : hasError ? 'bg-red-500' : count > 0 ? 'bg-green-600' : 'bg-gray-300'
+                      isLoading ? 'bg-green-400 animate-pulse' : hasError ? 'bg-red-500' : count > 0 ? 'bg-green-400' : 'bg-green-800'
                     }`}
                   />
-                  <span className="text-[11px] text-gray-500">
+                  <span className="text-[11px] text-green-600">
                     {isLoading ? 'Scraping…' : hasError ? 'Failed' : count > 0 ? `${count} stored` : 'Tap to scrape'}
                   </span>
                 </div>
@@ -305,33 +304,33 @@ export default function Home() {
 
         {/* ── Activity feed ── */}
         {activity.length > 0 && (
-          <div className="bg-white border border-green-100 rounded-xl p-4 shadow-sm">
-            <h3 className="text-[10px] font-medium text-green-700 uppercase tracking-widest mb-3">Recent activity</h3>
+          <div className="bg-green-900 border border-green-800 rounded-xl p-4">
+            <h3 className="text-[10px] font-medium text-green-500 uppercase tracking-widest mb-3">Recent activity</h3>
             <div className="space-y-2">
               {activity.map((e, i) => (
                 <div key={i} className="flex items-start gap-2 sm:gap-3 text-xs">
                   <span
                     className={`mt-0.5 shrink-0 px-1.5 py-0.5 rounded text-[9px] font-medium tracking-wider ${
                       e.kind === 'sold'
-                        ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                        ? 'bg-yellow-900/50 text-yellow-400 border border-yellow-800'
                         : e.kind === 'delisted'
-                        ? 'bg-red-50 text-red-600 border border-red-200'
-                        : 'bg-green-50 text-green-700 border border-green-200'
+                        ? 'bg-red-900/40 text-red-400 border border-red-800'
+                        : 'bg-green-800 text-green-300 border border-green-700'
                     }`}
                   >
                     {e.kind === 'sold' ? 'SOLD' : e.kind === 'delisted' ? 'DELISTED' : 'PRICE'}
                   </span>
-                  <div className="flex-1 text-gray-700 min-w-0 truncate">
-                    <span className="text-gray-400 mr-1">[{e.listing.source}]</span>
+                  <div className="flex-1 text-green-200 min-w-0 truncate">
+                    <span className="text-green-600 mr-1">[{e.listing.source}]</span>
                     {e.listing.title}
                     {e.kind === 'price' && e.listing.previous_asking_price != null && e.listing.asking_price != null && (
-                      <span className="ml-2 text-gray-400">
+                      <span className="ml-2 text-green-600">
                         ${e.listing.previous_asking_price.toLocaleString()} →
-                        <span className="text-green-700 ml-1">${e.listing.asking_price.toLocaleString()}</span>
+                        <span className="text-green-400 ml-1">${e.listing.asking_price.toLocaleString()}</span>
                       </span>
                     )}
                   </div>
-                  <span className="text-gray-400 whitespace-nowrap text-[10px]">
+                  <span className="text-green-700 whitespace-nowrap text-[10px]">
                     {new Date(e.ts).toLocaleDateString()}
                   </span>
                 </div>
@@ -342,12 +341,11 @@ export default function Home() {
 
         {/* ── Filters ── */}
         <div className="space-y-3">
-          {/* Row 1: cash flow + max price + franchise toggle */}
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center text-xs">
             <div className="flex items-center gap-2">
-              <span className="text-gray-500 shrink-0">Min cash flow:</span>
+              <span className="text-green-500 shrink-0">Min cash flow:</span>
               <div className="flex items-center gap-1">
-                <span className="text-gray-400">$</span>
+                <span className="text-green-600">$</span>
                 <input
                   type="number"
                   value={cashFlowInput}
@@ -358,14 +356,14 @@ export default function Home() {
                     else if (e.target.value === '') setMinCashFlow(0)
                   }}
                   placeholder="0"
-                  className="w-28 bg-white border border-gray-200 rounded px-2 py-1.5 text-gray-900 text-xs focus:outline-none focus:border-green-600"
+                  className="w-28 bg-green-950 border border-green-800 rounded px-2 py-1.5 text-green-100 text-xs focus:outline-none focus:border-green-500"
                 />
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-gray-500 shrink-0">Max asking price:</span>
+              <span className="text-green-500 shrink-0">Max asking price:</span>
               <div className="flex items-center gap-1">
-                <span className="text-gray-400">$</span>
+                <span className="text-green-600">$</span>
                 <input
                   type="number"
                   value={maxPriceInput}
@@ -376,7 +374,7 @@ export default function Home() {
                     else if (e.target.value === '') setMaxAskingPrice(0)
                   }}
                   placeholder="∞"
-                  className="w-32 bg-white border border-gray-200 rounded px-2 py-1.5 text-gray-900 text-xs focus:outline-none focus:border-green-600"
+                  className="w-32 bg-green-950 border border-green-800 rounded px-2 py-1.5 text-green-100 text-xs focus:outline-none focus:border-green-500"
                 />
               </div>
             </div>
@@ -384,46 +382,38 @@ export default function Home() {
               onClick={() => setHideFranchises((v) => !v)}
               className={`self-start sm:self-auto px-3 py-1.5 rounded-full border transition-colors ${
                 hideFranchises
-                  ? 'border-green-700 bg-green-50 text-green-800'
-                  : 'border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700'
+                  ? 'border-green-500 bg-green-800 text-green-300'
+                  : 'border-green-800 text-green-600 hover:border-green-600 hover:text-green-400'
               }`}
             >
               {hideFranchises ? '✓ ' : ''}Hide franchises
             </button>
             {(minCashFlow > 0 || maxAskingPrice > 0) && (
-              <span className="text-gray-400 text-[11px]">
+              <span className="text-green-700 text-[11px]">
                 showing {visibleListings.length} of {stored.length}
               </span>
             )}
           </div>
 
-          {/* Row 2: keyword exclusion */}
           <div className="flex items-center gap-2 text-xs">
-            <span className="text-gray-500 shrink-0">Exclude:</span>
+            <span className="text-green-500 shrink-0">Exclude:</span>
             <input
               type="text"
               value={excludeKeywords}
               onChange={(e) => setExcludeKeywords(e.target.value)}
               placeholder="laundromat, gas station, daycare…"
-              className="flex-1 bg-white border border-gray-200 rounded px-2 py-1.5 text-gray-900 text-xs focus:outline-none focus:border-green-600"
+              className="flex-1 bg-green-950 border border-green-800 rounded px-2 py-1.5 text-green-100 text-xs focus:outline-none focus:border-green-500"
             />
             {excludedKeywordList.length > 0 && (
-              <span className="text-gray-400 shrink-0">{excludedKeywordList.length} blocked</span>
+              <span className="text-green-700 shrink-0">{excludedKeywordList.length} blocked</span>
             )}
             {excludeKeywords && (
-              <button
-                onClick={() => setExcludeKeywords('')}
-                className="text-gray-400 hover:text-gray-700 px-1"
-                title="Clear keywords"
-              >
-                ✕
-              </button>
+              <button onClick={() => setExcludeKeywords('')} className="text-green-600 hover:text-green-400 px-1">✕</button>
             )}
           </div>
 
-          {/* Row 3: source toggles */}
           <div className="flex items-center gap-2 text-xs flex-wrap">
-            <span className="text-gray-500 shrink-0">Sources:</span>
+            <span className="text-green-500 shrink-0">Sources:</span>
             {SITES.map((s) => {
               const isOn = enabledSources.has(s.source)
               return (
@@ -437,11 +427,10 @@ export default function Home() {
                       return next
                     })
                   }
-                  title={isOn ? 'Click to hide this broker' : 'Click to show this broker'}
                   className={`px-2.5 py-1 rounded-full border transition-colors ${
                     isOn
-                      ? 'border-green-700 bg-green-50 text-green-800'
-                      : 'border-gray-200 text-gray-400 line-through hover:border-gray-400 hover:text-gray-500'
+                      ? 'border-green-500 bg-green-800 text-green-300'
+                      : 'border-green-900 text-green-700 line-through hover:border-green-700 hover:text-green-500'
                   }`}
                 >
                   {isOn ? '✓ ' : ''}{s.source} ({bySource[s.source] || 0})
@@ -449,31 +438,21 @@ export default function Home() {
               )
             })}
             <div className="flex items-center gap-1">
-              <button
-                onClick={() => setEnabledSources(new Set(SITES.map((s) => s.source)))}
-                className="px-2 py-1 text-gray-400 hover:text-green-800 underline-offset-2 hover:underline"
-              >
-                All
-              </button>
-              <span className="text-gray-300">·</span>
-              <button
-                onClick={() => setEnabledSources(new Set())}
-                className="px-2 py-1 text-gray-400 hover:text-green-800 underline-offset-2 hover:underline"
-              >
-                None
-              </button>
+              <button onClick={() => setEnabledSources(new Set(SITES.map((s) => s.source)))} className="px-2 py-1 text-green-600 hover:text-green-300 underline-offset-2 hover:underline">All</button>
+              <span className="text-green-800">·</span>
+              <button onClick={() => setEnabledSources(new Set())} className="px-2 py-1 text-green-600 hover:text-green-300 underline-offset-2 hover:underline">None</button>
             </div>
           </div>
         </div>
 
         {/* ── Errors ── */}
         {activeStatus?.error && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
+          <div className="bg-red-950/40 border border-red-800 rounded-xl p-4 text-sm text-red-400">
             <strong className="font-semibold">Scrape error: </strong>{activeStatus.error}
           </div>
         )}
         {storedError && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
+          <div className="bg-red-950/40 border border-red-800 rounded-xl p-4 text-sm text-red-400">
             <strong className="font-semibold">Database error: </strong>{storedError}
           </div>
         )}
@@ -481,39 +460,35 @@ export default function Home() {
         {/* ── Listings ── */}
         <div className="space-y-3">
           <div className="flex items-baseline justify-between flex-wrap gap-2">
-            <h2 className="text-base sm:text-lg font-semibold text-green-900">
+            <h2 className="text-base sm:text-lg font-semibold text-white">
               {enabledSources.size === SITES.length
                 ? 'All Listings'
                 : enabledSources.size === 1
                 ? SITES.find((s) => enabledSources.has(s.source))?.name ?? 'Listings'
                 : `${enabledSources.size} sources`}{' '}
-              <span className="text-gray-400 font-normal">({visibleListings.length})</span>
+              <span className="text-green-600 font-normal">({visibleListings.length})</span>
             </h2>
-            <div className="flex items-center gap-3 text-[11px] text-gray-500 flex-wrap">
+            <div className="flex items-center gap-3 text-[11px] text-green-600 flex-wrap">
               {activeStatus?.storage && (
                 <span>
-                  <span className="text-green-700">+{activeStatus.storage.inserted} new</span>
-                  {activeStatus.storage.updated > 0 && <span className="text-gray-400"> · {activeStatus.storage.updated} updated</span>}
-                  {activeStatus.storage.priceChanged ? <span className="text-green-600"> · {activeStatus.storage.priceChanged} price</span> : null}
-                  {activeStatus.storage.newlySold ? <span className="text-amber-600"> · {activeStatus.storage.newlySold} sold</span> : null}
+                  <span className="text-green-400">+{activeStatus.storage.inserted} new</span>
+                  {activeStatus.storage.updated > 0 && <span className="text-green-700"> · {activeStatus.storage.updated} updated</span>}
+                  {activeStatus.storage.priceChanged ? <span className="text-green-400"> · {activeStatus.storage.priceChanged} price</span> : null}
+                  {activeStatus.storage.newlySold ? <span className="text-yellow-500"> · {activeStatus.storage.newlySold} sold</span> : null}
                   {activeStatus.storage.delisted ? <span className="text-red-500"> · {activeStatus.storage.delisted} delisted</span> : null}
-                  {activeStatus.storage.errors > 0 && <span className="text-red-600"> · {activeStatus.storage.errors} errors</span>}
+                  {activeStatus.storage.errors > 0 && <span className="text-red-500"> · {activeStatus.storage.errors} errors</span>}
                 </span>
               )}
-              {activeStatus?.scrapedAt && (
-                <span>Scraped {new Date(activeStatus.scrapedAt).toLocaleString()}</span>
-              )}
+              {activeStatus?.scrapedAt && <span>Scraped {new Date(activeStatus.scrapedAt).toLocaleString()}</span>}
             </div>
           </div>
 
-          {/* Mobile card list */}
+          {/* Mobile cards */}
           <div className="md:hidden space-y-2">
             {storedLoading && stored.length === 0 ? (
-              <div className="bg-white border border-green-100 rounded-xl p-8 text-center text-gray-400 text-xs shadow-sm">
-                Loading from Supabase…
-              </div>
+              <div className="bg-green-900 border border-green-800 rounded-xl p-8 text-center text-green-600 text-xs">Loading from Supabase…</div>
             ) : visibleListings.length === 0 ? (
-              <div className="bg-white border border-green-100 rounded-xl p-8 text-center text-gray-400 text-xs shadow-sm">
+              <div className="bg-green-900 border border-green-800 rounded-xl p-8 text-center text-green-600 text-xs">
                 {stored.length === 0 ? 'No listings stored yet — tap a source above to scrape.' : 'No listings match your filters.'}
               </div>
             ) : (
@@ -523,64 +498,46 @@ export default function Home() {
                 const isHidden = !!l.is_hidden
                 const hasPriceChange = !!l.price_changed_at
                 return (
-                  <div
-                    key={l.id}
-                    className={`bg-white border border-green-100 rounded-xl p-4 shadow-sm ${isHidden ? 'opacity-30' : ''}`}
-                  >
+                  <div key={l.id} className={`bg-green-900 border border-green-800 rounded-xl p-4 ${isHidden ? 'opacity-30' : ''}`}>
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                          {isSold && (
-                            <span className="px-1.5 py-0.5 rounded text-[9px] font-medium tracking-wider bg-amber-50 text-amber-700 border border-amber-200">SOLD</span>
-                          )}
-                          {isDelisted && (
-                            <span className="px-1.5 py-0.5 rounded text-[9px] font-medium tracking-wider bg-red-50 text-red-600 border border-red-200">DELISTED</span>
-                          )}
-                          {hasPriceChange && (
-                            <span className="px-1.5 py-0.5 rounded text-[9px] font-medium tracking-wider bg-green-50 text-green-700 border border-green-200">PRICE Δ</span>
-                          )}
-                          <span className="text-[10px] text-gray-400 uppercase tracking-wider">{l.source}</span>
+                          {isSold && <span className="px-1.5 py-0.5 rounded text-[9px] font-medium tracking-wider bg-yellow-900/50 text-yellow-400 border border-yellow-800">SOLD</span>}
+                          {isDelisted && <span className="px-1.5 py-0.5 rounded text-[9px] font-medium tracking-wider bg-red-900/40 text-red-400 border border-red-800">DELISTED</span>}
+                          {hasPriceChange && <span className="px-1.5 py-0.5 rounded text-[9px] font-medium tracking-wider bg-green-800 text-green-300 border border-green-700">PRICE Δ</span>}
+                          <span className="text-[10px] text-green-600 uppercase tracking-wider">{l.source}</span>
                         </div>
                         {l.source_listing_url ? (
-                          <a
-                            href={l.source_listing_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={`text-sm font-medium leading-snug hover:text-green-700 ${isHidden ? 'text-gray-400 line-through' : isDelisted ? 'text-gray-400 line-through' : isSold ? 'text-amber-700' : 'text-gray-900'}`}
-                          >
+                          <a href={l.source_listing_url} target="_blank" rel="noopener noreferrer"
+                            className={`text-sm font-medium leading-snug hover:text-green-300 ${isHidden ? 'text-green-700 line-through' : isDelisted ? 'text-green-700 line-through' : isSold ? 'text-yellow-400' : 'text-white'}`}>
                             {l.title}
                           </a>
                         ) : (
-                          <span className={`text-sm font-medium leading-snug ${isHidden ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{l.title}</span>
+                          <span className={`text-sm font-medium leading-snug ${isHidden ? 'text-green-700 line-through' : 'text-white'}`}>{l.title}</span>
                         )}
-                        {l.location && <p className="text-[11px] text-gray-400 mt-0.5">{l.location}</p>}
+                        {l.location && <p className="text-[11px] text-green-600 mt-0.5">{l.location}</p>}
                       </div>
                       <button
                         onClick={() => toggleHidden(l)}
                         disabled={hidingId === l.id}
-                        title={isHidden ? 'Mark as interesting' : 'Not interested'}
                         className={`shrink-0 text-[11px] px-2 py-1 rounded border transition-colors disabled:opacity-40 ${
                           isHidden
-                            ? 'border-gray-200 text-gray-400 hover:border-gray-400 hover:text-gray-600'
-                            : 'border-gray-200 text-gray-400 hover:border-red-300 hover:text-red-500 hover:bg-red-50'
+                            ? 'border-green-700 text-green-600 hover:border-green-500 hover:text-green-400'
+                            : 'border-green-800 text-green-600 hover:border-red-700 hover:text-red-400 hover:bg-red-950/20'
                         }`}
                       >
                         {isHidden ? '↩' : '✕'}
                       </button>
                     </div>
                     <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-[11px] tabular-nums">
-                      <span className="text-gray-400">
-                        Asking <span className={`font-medium ${isDelisted ? 'text-gray-400' : 'text-green-700'}`}>{fmtMoney(l.asking_price, l.asking_price_text)}</span>
+                      <span className="text-green-600">
+                        Asking <span className={`font-medium ${isDelisted ? 'text-green-700' : 'text-green-400'}`}>{fmtMoney(l.asking_price, l.asking_price_text)}</span>
                         {hasPriceChange && l.previous_asking_price != null && (
-                          <span className="ml-1 text-gray-300 line-through">${l.previous_asking_price.toLocaleString()}</span>
+                          <span className="ml-1 text-green-700 line-through">${l.previous_asking_price.toLocaleString()}</span>
                         )}
                       </span>
-                      <span className="text-gray-400">
-                        Revenue <span className="text-gray-700">{fmtMoney(l.annual_revenue, l.annual_revenue_text)}</span>
-                      </span>
-                      <span className="text-gray-400">
-                        Cash flow <span className="text-gray-700">{fmtMoney(l.cash_flow, l.cash_flow_text)}</span>
-                      </span>
+                      <span className="text-green-600">Revenue <span className="text-green-200">{fmtMoney(l.annual_revenue, l.annual_revenue_text)}</span></span>
+                      <span className="text-green-600">Cash flow <span className="text-green-200">{fmtMoney(l.cash_flow, l.cash_flow_text)}</span></span>
                     </div>
                   </div>
                 )
@@ -589,10 +546,10 @@ export default function Home() {
           </div>
 
           {/* Desktop table */}
-          <div className="hidden md:block bg-white border border-green-100 rounded-xl overflow-hidden shadow-sm">
+          <div className="hidden md:block bg-green-900 border border-green-800 rounded-xl overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-green-50 border-b border-green-100 text-[10px] uppercase tracking-widest text-green-700">
+                <tr className="bg-green-950/60 border-b border-green-800 text-[10px] uppercase tracking-widest text-green-500">
                   <th className="text-left px-4 py-3 font-medium">Name</th>
                   <th className="text-left px-4 py-3 font-medium">Source</th>
                   <th className="text-right px-4 py-3 font-medium">Asking Price</th>
@@ -604,64 +561,37 @@ export default function Home() {
               </thead>
               <tbody>
                 {storedLoading && stored.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-gray-400 text-xs">
-                      Loading from Supabase…
-                    </td>
-                  </tr>
+                  <tr><td colSpan={7} className="px-4 py-8 text-center text-green-600 text-xs">Loading from Supabase…</td></tr>
                 ) : visibleListings.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-gray-400 text-xs">
-                      {stored.length === 0 ? 'No listings stored yet — click a source above to scrape.' : 'No listings match your filters.'}
-                    </td>
-                  </tr>
+                  <tr><td colSpan={7} className="px-4 py-8 text-center text-green-600 text-xs">
+                    {stored.length === 0 ? 'No listings stored yet — click a source above to scrape.' : 'No listings match your filters.'}
+                  </td></tr>
                 ) : (
                   visibleListings.map((l) => {
                     const isSold = !!l.is_sold
                     const isDelisted = !!l.delisted_at
                     const isHidden = !!l.is_hidden
                     const hasPriceChange = !!l.price_changed_at
-                    const titleColor = isHidden
-                      ? 'text-gray-400 line-through'
-                      : isDelisted
-                      ? 'text-gray-400 line-through'
-                      : isSold
-                      ? 'text-amber-700'
-                      : 'text-gray-900'
+                    const titleColor = isHidden ? 'text-green-700 line-through' : isDelisted ? 'text-green-700 line-through' : isSold ? 'text-yellow-400' : 'text-white'
                     return (
-                      <tr
-                        key={l.id}
-                        className={`border-b border-gray-100 last:border-b-0 transition-colors hover:bg-green-50/50 ${isHidden ? 'opacity-30' : ''}`}
-                      >
+                      <tr key={l.id} className={`border-b border-green-800/60 last:border-b-0 transition-colors hover:bg-green-800/40 ${isHidden ? 'opacity-30' : ''}`}>
                         <td className="px-4 py-3 max-w-md">
                           <div className="flex items-start gap-2">
                             <div className="flex flex-col gap-1 mt-0.5 shrink-0">
-                              {isSold && (
-                                <span className="px-1.5 py-0.5 rounded text-[9px] font-medium tracking-wider bg-amber-50 text-amber-700 border border-amber-200">SOLD</span>
-                              )}
-                              {isDelisted && (
-                                <span className="px-1.5 py-0.5 rounded text-[9px] font-medium tracking-wider bg-red-50 text-red-600 border border-red-200">DELISTED</span>
-                              )}
-                              {hasPriceChange && (
-                                <span className="px-1.5 py-0.5 rounded text-[9px] font-medium tracking-wider bg-green-50 text-green-700 border border-green-200">PRICE Δ</span>
-                              )}
+                              {isSold && <span className="px-1.5 py-0.5 rounded text-[9px] font-medium tracking-wider bg-yellow-900/50 text-yellow-400 border border-yellow-800">SOLD</span>}
+                              {isDelisted && <span className="px-1.5 py-0.5 rounded text-[9px] font-medium tracking-wider bg-red-900/40 text-red-400 border border-red-800">DELISTED</span>}
+                              {hasPriceChange && <span className="px-1.5 py-0.5 rounded text-[9px] font-medium tracking-wider bg-green-800 text-green-300 border border-green-700">PRICE Δ</span>}
                             </div>
                             <div className="min-w-0">
                               {l.source_listing_url ? (
-                                <a
-                                  href={l.source_listing_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className={`hover:text-green-700 line-clamp-2 ${titleColor}`}
-                                  title={l.title}
-                                >
+                                <a href={l.source_listing_url} target="_blank" rel="noopener noreferrer" className={`hover:text-green-300 line-clamp-2 ${titleColor}`} title={l.title}>
                                   {l.title}
                                 </a>
                               ) : (
                                 <span className={`line-clamp-2 ${titleColor}`}>{l.title}</span>
                               )}
                               {(l.location || l.status) && (
-                                <div className="text-[11px] text-gray-400 mt-0.5">
+                                <div className="text-[11px] text-green-600 mt-0.5">
                                   {l.status && <span className="mr-2">{l.status}</span>}
                                   {l.location}
                                 </div>
@@ -669,35 +599,24 @@ export default function Home() {
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-gray-400 capitalize text-xs">{l.source}</td>
+                        <td className="px-4 py-3 text-green-600 capitalize text-xs">{l.source}</td>
                         <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap">
-                          <div className={isDelisted ? 'text-gray-400' : 'text-green-700 font-medium'}>
-                            {fmtMoney(l.asking_price, l.asking_price_text)}
-                          </div>
+                          <div className={isDelisted ? 'text-green-700' : 'text-green-400 font-medium'}>{fmtMoney(l.asking_price, l.asking_price_text)}</div>
                           {hasPriceChange && l.previous_asking_price != null && (
-                            <div className="text-[10px] text-gray-300 line-through">
-                              ${l.previous_asking_price.toLocaleString()}
-                            </div>
+                            <div className="text-[10px] text-green-700 line-through">${l.previous_asking_price.toLocaleString()}</div>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-right text-gray-700 tabular-nums whitespace-nowrap">
-                          {fmtMoney(l.annual_revenue, l.annual_revenue_text)}
-                        </td>
-                        <td className="px-4 py-3 text-right text-gray-700 tabular-nums whitespace-nowrap">
-                          {fmtMoney(l.cash_flow, l.cash_flow_text)}
-                        </td>
-                        <td className="px-4 py-3 text-right text-gray-400 text-xs whitespace-nowrap">
-                          {new Date(l.first_seen_at).toLocaleDateString()}
-                        </td>
+                        <td className="px-4 py-3 text-right text-green-200 tabular-nums whitespace-nowrap">{fmtMoney(l.annual_revenue, l.annual_revenue_text)}</td>
+                        <td className="px-4 py-3 text-right text-green-200 tabular-nums whitespace-nowrap">{fmtMoney(l.cash_flow, l.cash_flow_text)}</td>
+                        <td className="px-4 py-3 text-right text-green-600 text-xs whitespace-nowrap">{new Date(l.first_seen_at).toLocaleDateString()}</td>
                         <td className="px-4 py-3 text-right">
                           <button
                             onClick={() => toggleHidden(l)}
                             disabled={hidingId === l.id}
-                            title={isHidden ? 'Mark as interesting' : 'Not interested'}
                             className={`text-[11px] px-2 py-1 rounded border transition-colors disabled:opacity-40 ${
                               isHidden
-                                ? 'border-gray-200 text-gray-400 hover:border-gray-400 hover:text-gray-600'
-                                : 'border-gray-200 text-gray-400 hover:border-red-300 hover:text-red-500 hover:bg-red-50'
+                                ? 'border-green-700 text-green-600 hover:border-green-500 hover:text-green-400'
+                                : 'border-green-800 text-green-600 hover:border-red-700 hover:text-red-400 hover:bg-red-950/20'
                             }`}
                           >
                             {isHidden ? '↩ Restore' : '✕'}
