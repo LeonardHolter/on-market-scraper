@@ -31,6 +31,7 @@ const SOURCE_DOTS: Record<string, string> = {
   synergy: '#4f6ef7',
   fcbb:    '#7c5cbf',
   zoom:    '#2a9d8f',
+  viking:  '#c0392b',
 }
 
 export default function FindListings() {

@@ -50,12 +50,14 @@ const SITES: SiteConfig[] = [
   { name: 'Synergy Business Brokers',      source: 'synergy', phase: 1, url: 'synergybb.com',           endpoint: '/api/scrape/synergy' },
   { name: 'First Choice Business Brokers', source: 'fcbb',    phase: 1, url: 'fcbb.com',                endpoint: '/api/scrape/fcbb' },
   { name: 'Zoom Business Brokers',         source: 'zoom',    phase: 1, url: 'zoombusinessbrokers.com', endpoint: '/api/scrape/zoom' },
+  { name: 'Viking Mergers & Acquisitions', source: 'viking',  phase: 1, url: 'vikingmergers.com',       endpoint: '/api/scrape/viking' },
 ]
 
 const SOURCE_DOTS: Record<string, string> = {
   synergy: '#4f6ef7',
   fcbb:    '#7c5cbf',
   zoom:    '#2a9d8f',
+  viking:  '#c0392b',
 }
 
 interface ScrapeStatus {
@@ -441,7 +443,7 @@ export default function Home() {
           )}
 
           {/* ── Source cards ─────────────────────────────────────────────── */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 24 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
             {SITES.map((site) => {
               const status = scrapeStatus[site.source]
               const count = bySource[site.source] || 0
