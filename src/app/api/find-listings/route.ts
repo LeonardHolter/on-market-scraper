@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import OpenAI from 'openai'
+import Anthropic from '@anthropic-ai/sdk'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -23,10 +23,10 @@ interface AIResultItem {
 }
 
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.OPENAI_API_KEY
+  const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
     return NextResponse.json(
-      { success: false, error: 'OPENAI_API_KEY is not configured.' },
+      { success: false, error: 'ANTHROPIC_API_KEY is not configured.' },
       { status: 500 }
     )
   }
@@ -51,8 +51,7 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Pull every plausible listing — same filters the dashboard applies.
-  // Cash flow must be present, not sold, not delisted, no franchise in title.
+  // Pull every plausible listing — same baseline filters as the dashboard.
   const { data, error } = await supabaseAdmin
     .from('broker_listings')
     .select(
@@ -91,9 +90,7 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  // Build a compact context block — keep tokens manageable.
-  // Each row ≈ 100 chars → 5,000 listings ≈ 500 KB ≈ 125K tokens. We use the
-  // listing arrays directly as JSON; gpt-4o-mini handles 128K context.
+  // Compact context block. Same listing set across queries within a day → cached.
   const compact = listings.map((l) => ({
     id: l.id,
     src: l.source,
@@ -104,47 +101,35 @@ export async function POST(req: NextRequest) {
     loc: l.location,
   }))
 
-  const openai = new OpenAI({ apiKey })
+  const systemPrompt = `You are an expert M&A search assistant for a private buyer. The user describes their ideal acquisition. You receive a JSON array of available business listings. Pick the TOP 10 listings that best match the buyer's description, ranked from #1 (best fit) to #10. Match on industry, business model, financial profile (price / revenue / cash flow), and location when relevant. Be strict — only include listings that genuinely fit the buyer's intent. If fewer than 10 are strong fits, return only the strong matches. Each result must include the exact listing id from the input and a 1-2 sentence reason explaining the fit.`
 
-  const systemPrompt = `You are an expert M&A search assistant for a private buyer. The user describes their ideal acquisition. You will be given a JSON array of available business listings. Your job: pick the TOP 10 listings that best match the buyer's description, ranked from #1 (best fit) to #10. Match on industry, business model, financial profile (price / revenue / cash flow), and location when relevant. Be strict — only include listings that genuinely fit the buyer's intent. If fewer than 10 are a strong fit, return only the strong matches. Each result must include the exact listing id from the input and a 1–2 sentence "reason" explaining why it fits.`
+  const listingsBlock = `Available listings (JSON, ${compact.length} total):\n${JSON.stringify(compact)}`
+  const queryBlock = `Buyer's description of their perfect listing:\n"""\n${query}\n"""\n\nReturn the top 10 best matches via the return_matches tool.`
 
-  const userPrompt = `Buyer's description of their perfect listing:
-"""
-${query}
-"""
-
-Available listings (JSON, ${compact.length} total):
-${JSON.stringify(compact)}
-
-Return the top 10 best matches.`
+  const anthropic = new Anthropic({ apiKey })
 
   let aiResults: AIResultItem[] = []
+  let usage: Anthropic.Messages.Usage | null = null
   try {
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      temperature: 0.2,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      response_format: {
-        type: 'json_schema',
-        json_schema: {
-          name: 'listing_matches',
-          strict: true,
-          schema: {
-            type: 'object',
-            additionalProperties: false,
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-5',
+      max_tokens: 4096,
+      system: systemPrompt,
+      tools: [
+        {
+          name: 'return_matches',
+          description: 'Return the top 10 best-matched listings, ranked.',
+          input_schema: {
+            type: 'object' as const,
             properties: {
               results: {
                 type: 'array',
                 items: {
                   type: 'object',
-                  additionalProperties: false,
                   properties: {
-                    id: { type: 'string' },
-                    rank: { type: 'integer' },
-                    reason: { type: 'string' },
+                    id: { type: 'string', description: 'Exact listing id from the input.' },
+                    rank: { type: 'integer', description: '1 = best fit, 10 = tenth-best.' },
+                    reason: { type: 'string', description: '1-2 sentences explaining the fit.' },
                   },
                   required: ['id', 'rank', 'reason'],
                 },
@@ -153,24 +138,36 @@ Return the top 10 best matches.`
             required: ['results'],
           },
         },
-      },
+      ],
+      tool_choice: { type: 'tool', name: 'return_matches' },
+      messages: [
+        {
+          role: 'user',
+          content: [
+            // Cache the listings block — it changes once a day after the cron, but
+            // is identical across multiple buyer queries in between scrapes.
+            { type: 'text', text: listingsBlock, cache_control: { type: 'ephemeral' } },
+            { type: 'text', text: queryBlock },
+          ],
+        },
+      ],
     })
 
-    const content = completion.choices[0]?.message?.content || '{}'
-    const parsed = JSON.parse(content)
-    aiResults = Array.isArray(parsed.results) ? parsed.results : []
+    const toolUse = response.content.find((c) => c.type === 'tool_use')
+    if (!toolUse || toolUse.type !== 'tool_use') {
+      throw new Error('Claude did not return a tool_use block')
+    }
+    const input = toolUse.input as { results?: AIResultItem[] }
+    aiResults = Array.isArray(input.results) ? input.results : []
+    usage = response.usage ?? null
   } catch (e) {
-    console.error('[find-listings] OpenAI error', e)
+    console.error('[find-listings] Claude error', e)
     return NextResponse.json(
-      {
-        success: false,
-        error: e instanceof Error ? e.message : 'AI request failed',
-      },
+      { success: false, error: e instanceof Error ? e.message : 'AI request failed' },
       { status: 502 }
     )
   }
 
-  // Hydrate the AI's id picks with full listing data, in rank order
   const byId = new Map(listings.map((l) => [l.id, l]))
   const enriched = aiResults
     .filter((r) => byId.has(r.id))
@@ -187,5 +184,6 @@ Return the top 10 best matches.`
     query,
     totalConsidered: listings.length,
     results: enriched,
+    usage,
   })
 }

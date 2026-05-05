@@ -30,8 +30,8 @@
 Update your `.env.local` file:
 
 ```bash
-# OpenAI API Configuration
-OPENAI_API_KEY=sk-your-actual-key-here
+# Anthropic API Configuration (used by /find AI search)
+ANTHROPIC_API_KEY=sk-ant-your-actual-key-here
 
 # Supabase Configuration  
 NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
