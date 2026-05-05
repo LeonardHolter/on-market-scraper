@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 interface StoredListing {
@@ -306,18 +305,6 @@ export default function Home() {
                   <span style={{ width: 5, height: 5, borderRadius: 999, background: 'oklch(0.52 0.16 155)', display: 'inline-block' }} />
                   Live
                 </span>
-                <Link
-                  href="/find"
-                  style={{
-                    fontSize: 12, fontWeight: 500, color: 'var(--accent)',
-                    background: 'var(--accent-soft)', borderRadius: 20,
-                    padding: '4px 12px', textDecoration: 'none',
-                    display: 'inline-flex', alignItems: 'center', gap: 5,
-                    border: '1px solid transparent',
-                  }}
-                >
-                  ✦ Find with AI
-                </Link>
               </div>
               <p style={{ fontSize: 13, color: 'var(--text-3)', margin: 0 }}>
                 Broker listings refreshed daily at 12:00 AM EST
