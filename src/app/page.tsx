@@ -52,9 +52,9 @@ const SITES: SiteConfig[] = [
 ]
 
 const SOURCE_DOTS: Record<string, string> = {
-  synergy: 'oklch(0.6 0.16 252)',
-  fcbb:    'oklch(0.6 0.15 290)',
-  zoom:    'oklch(0.62 0.14 200)',
+  synergy: '#4f6ef7',
+  fcbb:    '#7c5cbf',
+  zoom:    '#2a9d8f',
 }
 
 interface ScrapeStatus {
@@ -318,51 +318,33 @@ export default function Home() {
 
   // ─── CSS variables ────────────────────────────────────────────────────────
   const css = `
-    :root {
-      --bg:           oklch(0.985 0.002 95);
-      --surface:      #ffffff;
-      --surface-2:    oklch(0.975 0.003 95);
-      --border:       oklch(0.92 0.004 95);
-      --border-strong:oklch(0.86 0.005 95);
-      --text:         oklch(0.18 0.005 250);
-      --text-2:       oklch(0.42 0.008 250);
-      --text-3:       oklch(0.62 0.008 250);
-      --text-4:       oklch(0.78 0.005 250);
-      --accent:       oklch(0.58 0.18 252);
-      --accent-soft:  oklch(0.95 0.04 252);
-      --money:        oklch(0.42 0.13 155);
-      --warn:         oklch(0.62 0.15 65);
-      --danger:       oklch(0.55 0.18 25);
-      --shadow-sm:    0 1px 2px 0 oklch(0.18 0.005 250 / 0.04);
-      --shadow-md:    0 1px 3px 0 oklch(0.18 0.005 250 / 0.06), 0 4px 12px -4px oklch(0.18 0.005 250 / 0.05);
-    }
-    body { background: var(--bg) !important; }
-    .df-page { font-feature-settings: 'ss01','cv11'; letter-spacing: -0.01em; color: var(--text); background: var(--bg); min-height: 100vh; }
+    body { background: #faf9f7 !important; color: #1a1a2e !important; }
+    .df-page { font-feature-settings: 'ss01','cv11'; letter-spacing: -0.01em; color: #1a1a2e; background: #faf9f7; min-height: 100vh; }
     .df-mono { font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
     .df-num  { font-variant-numeric: tabular-nums; letter-spacing: -0.015em; }
-    .df-table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow-sm); }
+    .df-table-wrap { background: #ffffff; border: 1px solid #e8e6e1; border-radius: 14px; overflow: hidden; box-shadow: 0 1px 2px 0 rgba(26,26,46,0.04); }
     .df-table { width: 100%; border-collapse: separate; border-spacing: 0; }
-    .df-table thead th { background: var(--surface-2); text-align: left; font-size: 11px; font-weight: 500; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.06em; padding: 13px 20px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    .df-table thead th { background: #f5f4f1; text-align: left; font-size: 11px; font-weight: 500; color: #7a7a9a; text-transform: uppercase; letter-spacing: 0.06em; padding: 13px 20px; border-bottom: 1px solid #e8e6e1; white-space: nowrap; }
     .df-table thead th.sortable { cursor: pointer; user-select: none; }
-    .df-table thead th.sortable:hover { color: var(--text-2); }
-    .df-table tbody td { padding: 16px 20px; vertical-align: middle; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .df-table thead th.sortable:hover { color: #4a4a6a; }
+    .df-table tbody td { padding: 16px 20px; vertical-align: middle; border-bottom: 1px solid #e8e6e1; font-size: 13px; color: #1a1a2e; }
     .df-table tbody tr:last-child td { border-bottom: none; }
-    .df-table tbody tr:hover { background: oklch(0.975 0.003 95); }
+    .df-table tbody tr:hover { background: #f5f4f1; }
     .df-source-dot::before { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 999px; background: var(--dot-color, #aaa); margin-right: 6px; vertical-align: middle; position: relative; top: -1px; }
     .df-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
-    .df-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-sm); }
-    .df-input { background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 13px; font-weight: 500; outline: none; color: var(--text); font-family: inherit; font-variant-numeric: tabular-nums; }
-    .df-input:focus { border-color: var(--accent); }
-    .df-btn-accent { background: var(--accent-soft); color: var(--accent); border: 1px solid transparent; border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 500; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 6px; transition: opacity 150ms; }
+    .df-card { background: #ffffff; border: 1px solid #e8e6e1; border-radius: 12px; box-shadow: 0 1px 2px 0 rgba(26,26,46,0.04); }
+    .df-input { background: #f5f4f1; border: 1px solid #e8e6e1; border-radius: 8px; padding: 6px 10px; font-size: 13px; font-weight: 500; outline: none; color: #1a1a2e; font-family: inherit; font-variant-numeric: tabular-nums; }
+    .df-input:focus { border-color: #4f6ef7; }
+    .df-btn-accent { background: #eef1fe; color: #4f6ef7; border: 1px solid transparent; border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 500; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 6px; transition: opacity 150ms; }
     .df-btn-accent:hover { opacity: 0.8; }
-    .df-btn-ghost { background: var(--surface); color: var(--text-3); border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; font-size: 11px; font-weight: 500; cursor: pointer; font-family: inherit; transition: all 150ms; }
-    .df-btn-ghost:hover { border-color: var(--border-strong); color: var(--text-2); }
-    .df-btn-active { background: var(--accent-soft) !important; color: var(--accent) !important; border-color: transparent !important; }
-    .df-hide-btn { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text-4); cursor: pointer; font-size: 11px; transition: all 150ms; }
-    .df-hide-btn:hover { border-color: var(--border-strong); color: var(--danger); }
-    .df-source-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; cursor: pointer; transition: all 150ms; box-shadow: var(--shadow-sm); text-align: left; width: 100%; }
-    .df-source-card:hover { border-color: var(--border-strong); transform: translateY(-1px); box-shadow: var(--shadow-md); }
-    .df-source-card.active { border-color: var(--accent); background: var(--accent-soft); }
+    .df-btn-ghost { background: #ffffff; color: #7a7a9a; border: 1px solid #e8e6e1; border-radius: 6px; padding: 5px 10px; font-size: 11px; font-weight: 500; cursor: pointer; font-family: inherit; transition: all 150ms; }
+    .df-btn-ghost:hover { border-color: #d4d1ca; color: #4a4a6a; }
+    .df-btn-active { background: #eef1fe !important; color: #4f6ef7 !important; border-color: transparent !important; }
+    .df-hide-btn { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #e8e6e1; border-radius: 6px; background: #ffffff; color: #a8a8c0; cursor: pointer; font-size: 11px; transition: all 150ms; }
+    .df-hide-btn:hover { border-color: #d4d1ca; color: #b91c1c; }
+    .df-source-card { background: #ffffff; border: 1px solid #e8e6e1; border-radius: 12px; padding: 18px; cursor: pointer; transition: all 150ms; box-shadow: 0 1px 2px 0 rgba(26,26,46,0.04); text-align: left; width: 100%; }
+    .df-source-card:hover { border-color: #d4d1ca; transform: translateY(-1px); box-shadow: 0 1px 3px 0 rgba(26,26,46,0.06), 0 4px 12px -4px rgba(26,26,46,0.05); }
+    .df-source-card.active { border-color: #4f6ef7; background: #eef1fe; }
   `
 
   return (
@@ -381,7 +363,7 @@ export default function Home() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
                 <div style={{
                   width: 30, height: 30, borderRadius: 9,
-                  background: 'linear-gradient(135deg, oklch(0.58 0.18 252) 0%, oklch(0.5 0.2 270) 100%)',
+                  background: 'linear-gradient(135deg, #4f6ef7 0%, #6c4de8 100%)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   color: 'white', fontSize: 14, fontWeight: 700, flexShrink: 0,
                   boxShadow: 'var(--shadow-md)',
@@ -389,8 +371,8 @@ export default function Home() {
                 <h1 style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.025em', margin: 0, color: 'var(--text)' }}>
                   Deal Flow
                 </h1>
-                <span className="df-pill" style={{ background: 'oklch(0.93 0.06 155)', color: 'oklch(0.38 0.13 155)' }}>
-                  <span style={{ width: 5, height: 5, borderRadius: 999, background: 'oklch(0.52 0.16 155)', display: 'inline-block' }} />
+                <span className="df-pill" style={{ background: '#d1fae5', color: '#065f46' }}>
+                  <span style={{ width: 5, height: 5, borderRadius: 999, background: '#10b981', display: 'inline-block' }} />
                   Live
                 </span>
 
@@ -403,7 +385,7 @@ export default function Home() {
                       borderRadius: 999, padding: '4px 12px', textDecoration: 'none',
                       display: 'inline-flex', alignItems: 'center', gap: 6,
                     }}>
-                      <span style={{ width: 5, height: 5, borderRadius: 999, background: 'oklch(0.52 0.16 155)', display: 'inline-block' }} />
+                      <span style={{ width: 5, height: 5, borderRadius: 999, background: '#10b981', display: 'inline-block' }} />
                       Pro
                     </Link>
                   ) : entitlement.isAuthed ? (
@@ -488,7 +470,7 @@ export default function Home() {
                       </div>
                       <div style={{
                         width: 7, height: 7, borderRadius: 999, flexShrink: 0, marginLeft: 10, marginTop: 3,
-                        background: isLoading ? 'var(--accent)' : count > 0 ? 'oklch(0.52 0.16 155)' : 'var(--text-4)',
+                        background: isLoading ? '#4f6ef7' : count > 0 ? '#10b981' : '#a8a8c0',
                       }} />
                     </div>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
@@ -517,7 +499,7 @@ export default function Home() {
           {/* ── Errors ───────────────────────────────────────────────────── */}
           {(activeStatus?.error || storedError) && (
             <div style={{
-              background: 'oklch(0.97 0.03 25)', border: '1px solid oklch(0.88 0.05 25)',
+              background: '#fef2f2', border: '1px solid #fecaca',
               borderRadius: 10, padding: '12px 16px', marginBottom: 16,
               fontSize: 13, color: 'var(--danger)',
             }}>
@@ -614,7 +596,7 @@ export default function Home() {
             </h2>
             {activeStatus?.storage && (
               <div style={{ fontSize: 11, color: 'var(--text-4)' }}>
-                {activeStatus.storage.inserted > 0 && <span style={{ color: 'oklch(0.42 0.13 155)' }}>+{activeStatus.storage.inserted} new</span>}
+                {activeStatus.storage.inserted > 0 && <span style={{ color: '#1a6b3a' }}>+{activeStatus.storage.inserted} new</span>}
                 {activeStatus.storage.updated > 0 && <span> · {activeStatus.storage.updated} updated</span>}
                 {activeStatus.storage.priceChanged ? <span style={{ color: 'var(--accent)' }}> · {activeStatus.storage.priceChanged} price chg</span> : null}
                 {activeStatus.scrapedAt && <span> · scraped {new Date(activeStatus.scrapedAt).toLocaleTimeString()}</span>}
@@ -821,7 +803,7 @@ export default function Home() {
                     flexWrap: 'wrap',
                   }}>
                     <span className="df-pill" style={{
-                      background: e.kind === 'sold' ? 'oklch(0.96 0.04 65)' : e.kind === 'delisted' ? 'oklch(0.96 0.04 25)' : 'var(--accent-soft)',
+                      background: e.kind === 'sold' ? '#fef3c7' : e.kind === 'delisted' ? '#fef2f2' : '#eef1fe',
                       color: e.kind === 'sold' ? 'var(--warn)' : e.kind === 'delisted' ? 'var(--danger)' : 'var(--accent)',
                       flexShrink: 0,
                     }}>
@@ -854,7 +836,7 @@ export default function Home() {
             onClick={() => setPaywallOpen(false)}
             style={{
               position: 'fixed', inset: 0, zIndex: 50,
-              background: 'oklch(0.18 0.005 250 / 0.45)',
+              background: 'rgba(26,26,46,0.45)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               padding: 20, backdropFilter: 'blur(4px)',
             }}
@@ -863,7 +845,7 @@ export default function Home() {
               onClick={(e) => e.stopPropagation()}
               style={{
                 background: 'var(--surface)', borderRadius: 16,
-                boxShadow: '0 20px 60px -10px oklch(0.18 0.005 250 / 0.3)',
+                boxShadow: '0 20px 60px -10px rgba(26,26,46,0.3)',
                 padding: 32, maxWidth: 440, width: '100%', boxSizing: 'border-box',
                 border: '1px solid var(--border)',
               }}
