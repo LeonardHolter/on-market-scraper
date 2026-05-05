@@ -398,15 +398,6 @@ export default function Home() {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 28 }}>
               <div style={{ textAlign: 'right' }}>
-                <div className="df-mono" style={{ fontSize: 28, fontWeight: 500, letterSpacing: '-0.03em', color: '#1a1a2e', lineHeight: 1 }}>
-                  {fmtCountdown(msUntilRescrape)}
-                </div>
-                <div style={{ fontSize: 11, color: '#7a7a9a', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: 5 }}>
-                  Next refresh
-                </div>
-              </div>
-              <div style={{ width: 1, height: 40, background: '#e8e6e1' }} />
-              <div style={{ textAlign: 'right' }}>
                 <div className="df-num" style={{ fontSize: 28, fontWeight: 500, letterSpacing: '-0.03em', color: '#1a1a2e', lineHeight: 1 }}>
                   {totalStored.toLocaleString()}
                 </div>
