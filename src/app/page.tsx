@@ -361,7 +361,7 @@ export default function Home() {
                   boxShadow: 'var(--shadow-md)',
                 }}>D</div>
                 <h1 style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.025em', margin: 0, color: 'var(--text)' }}>
-                  Deal Flow
+                  Nemmis
                 </h1>
                 <span className="df-pill" style={{ background: '#d1fae5', color: '#065f46' }}>
                   <span style={{ width: 5, height: 5, borderRadius: 999, background: '#10b981', display: 'inline-block' }} />
@@ -428,7 +428,7 @@ export default function Home() {
                   You&apos;ve used your 3 free listing previews.
                 </span>
                 <span style={{ fontSize: 13, color: '#b45309' }}>
-                  Subscribe to keep using Deal Flow.
+                  Subscribe to keep using Nemmis.
                 </span>
               </div>
               <Link
@@ -830,7 +830,7 @@ export default function Home() {
                 }}>🔒</div>
                 <div>
                   <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.02em', color: '#1a1a2e', lineHeight: 1.2 }}>
-                    Unlock Deal Flow
+                    Unlock Nemmis
                   </div>
                   <div style={{ fontSize: 12, color: '#7a7a9a', marginTop: 2 }}>
                     You&apos;ve used your 3 free previews

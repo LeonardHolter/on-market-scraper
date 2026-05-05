@@ -84,7 +84,7 @@ export default function AuthForm({ mode }: Props) {
       <p style={{ fontSize: 13, color: 'var(--text-3)', marginTop: 8, marginBottom: 24 }}>
         {mode === 'sign-up'
           ? 'Unlimited listing access for $19/month after sign-up.'
-          : 'Welcome back to Deal Flow.'}
+          : 'Welcome back to Nemmis.'}
       </p>
 
       <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>

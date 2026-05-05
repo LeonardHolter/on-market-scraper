@@ -6,7 +6,7 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Holter Holdings — Deal Flow Scraper",
+  title: "Holter Holdings — Nemmis Scraper",
   description: "On-market business broker scraper dashboard",
 };
 

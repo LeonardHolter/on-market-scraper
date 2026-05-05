@@ -9,7 +9,7 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? 'sk_missing', 
   // Pin to a stable API version
   apiVersion: '2026-04-22.dahlia',
   appInfo: {
-    name: 'Deal Flow',
+    name: 'Nemmis',
   },
 })
 

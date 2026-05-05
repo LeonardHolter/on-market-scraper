@@ -45,7 +45,7 @@ export default async function AccountPage({
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             color: 'white', fontSize: 13, fontWeight: 700,
           }}>D</div>
-          <span style={{ fontSize: 17, fontWeight: 600, letterSpacing: '-0.02em' }}>Deal Flow</span>
+          <span style={{ fontSize: 17, fontWeight: 600, letterSpacing: '-0.02em' }}>Nemmis</span>
         </Link>
 
         <h1 style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.025em', margin: 0, color: 'var(--text)' }}>
@@ -59,7 +59,7 @@ export default async function AccountPage({
             borderRadius: 8, padding: '10px 14px', fontSize: 12, color: 'oklch(0.4 0.13 155)',
             marginTop: 16,
           }}>
-            ✓ Subscription active. Welcome to Deal Flow.
+            ✓ Subscription active. Welcome to Nemmis.
           </div>
         )}
 

@@ -18,7 +18,7 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           color: 'white', fontSize: 13, fontWeight: 700,
         }}>D</div>
-        <span style={{ fontSize: 17, fontWeight: 600, letterSpacing: '-0.02em' }}>Deal Flow</span>
+        <span style={{ fontSize: 17, fontWeight: 600, letterSpacing: '-0.02em' }}>Nemmis</span>
       </Link>
       {children}
     </div>
