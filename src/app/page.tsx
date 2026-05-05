@@ -126,7 +126,10 @@ export default function Home() {
           },
         }))
       } finally {
-        await refreshStored(filterSource)
+        // Use the source we just scraped (or current filter if silent) — avoid
+        // a stale-closure bug where setFilterSource() above hasn't taken effect yet
+        const refreshFor = opts.silent ? filterSource : site.source
+        await refreshStored(refreshFor)
       }
     },
     [filterSource, refreshStored]

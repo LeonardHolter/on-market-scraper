@@ -12,7 +12,7 @@ const FALLBACK_SELECT =
 
 export async function GET(req: NextRequest) {
   const source = req.nextUrl.searchParams.get('source')
-  const limit = Number(req.nextUrl.searchParams.get('limit')) || 500
+  const limit = Number(req.nextUrl.searchParams.get('limit')) || 5000
 
   const buildQuery = (selectCols: string) => {
     let q = supabaseAdmin
@@ -39,15 +39,19 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })
   }
 
-  // Per-source counts
-  const { data: counts } = await supabaseAdmin
-    .from('broker_listings')
-    .select('source')
-
+  // Per-source counts. Use a HEAD count per known source so we never get cut
+  // off by Supabase's default 1000-row limit on regular SELECTs.
+  const knownSources = ['synergy', 'bateson', 'businessesforsale']
   const bySource: Record<string, number> = {}
-  ;(counts || []).forEach((r) => {
-    bySource[r.source] = (bySource[r.source] || 0) + 1
-  })
+  await Promise.all(
+    knownSources.map(async (src) => {
+      const { count } = await supabaseAdmin
+        .from('broker_listings')
+        .select('*', { count: 'exact', head: true })
+        .eq('source', src)
+      bySource[src] = count || 0
+    })
+  )
 
   return NextResponse.json({
     success: true,
