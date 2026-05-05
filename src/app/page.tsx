@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 interface StoredListing {
@@ -287,7 +288,15 @@ export default function Home() {
 
         <div className="flex items-baseline justify-between gap-6">
           <div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">Scraper</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold text-white tracking-tight">Scraper</h1>
+              <Link
+                href="/find"
+                className="text-xs px-3 py-1 rounded-full border border-blue-700 bg-blue-600/10 text-blue-300 hover:bg-blue-600/20 transition-colors"
+              >
+                ✨ Find with AI
+              </Link>
+            </div>
             <p className="text-sm text-gray-500 mt-1">
               On-market broker sources rescraped daily at 12:00 AM EST.
               {lastAutoRun && (
