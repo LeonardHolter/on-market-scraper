@@ -7,7 +7,7 @@ export const runtime = 'nodejs'
 export const maxDuration = 60
 
 const BASE_URL =
-  'https://synergybb.com/businesses-for-sale/?_listing_location_multi=arizona%2Ccalifornia%2Cdelaware%2Cflorida%2Cillinois%2Cmaryland%2Cmassachusetts%2Cnew-jersey%2Cnew-mexico%2Cnew-york%2Coklahoma%2Cpennsylvania%2Csouth-carolina%2Ctexas&_listing_industry_multi=services&_listing_net_cash_flow=498000.00%2C3021000.00'
+  'https://synergybb.com/businesses-for-sale/?_listing_location_multi=arizona%2Ccalifornia%2Cdelaware%2Cflorida%2Cillinois%2Cmaryland%2Cmassachusetts%2Cnew-jersey%2Cnew-mexico%2Cnew-york%2Coklahoma%2Cpennsylvania%2Csouth-carolina%2Ctexas&_listing_industry_multi=services&_listing_net_cash_flow=498000.00%2C6563296.00'
 
 const USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
