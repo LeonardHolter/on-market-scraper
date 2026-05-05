@@ -83,6 +83,8 @@ export default function Home() {
   const [maxPriceInput, setMaxPriceInput] = useState('10000000')
   const [hideFranchises, setHideFranchises] = useState(true)
   const [excludeKeywords, setExcludeKeywords] = useState<string>('')
+  const [sortBy, setSortBy] = useState<'location' | 'asking_price' | 'annual_revenue' | 'cash_flow' | 'first_seen_at'>('cash_flow')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [now, setNow] = useState<number>(() => Date.now())
   const lastRunRef = useRef<number>(0)
 
@@ -209,6 +211,27 @@ export default function Home() {
     return true
   })
 
+  const handleSort = (col: typeof sortBy) => {
+    if (sortBy === col) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    else { setSortBy(col); setSortDir(col === 'location' ? 'asc' : 'desc') }
+  }
+
+  const sortedListings = [...visibleListings].sort((a, b) => {
+    let cmp = 0
+    if (sortBy === 'location') {
+      const la = (a.location ?? '').toLowerCase()
+      const lb = (b.location ?? '').toLowerCase()
+      cmp = la < lb ? -1 : la > lb ? 1 : 0
+    } else if (sortBy === 'first_seen_at') {
+      cmp = new Date(a.first_seen_at).getTime() - new Date(b.first_seen_at).getTime()
+    } else {
+      const va = a[sortBy] ?? -Infinity
+      const vb = b[sortBy] ?? -Infinity
+      cmp = (va as number) - (vb as number)
+    }
+    return sortDir === 'asc' ? cmp : -cmp
+  })
+
   const fmtMoneyCompact = (n: number | null): string => {
     if (n == null) return '—'
     if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(n >= 10_000_000 ? 1 : 2).replace(/\.?0+$/, '')}M`
@@ -229,6 +252,11 @@ export default function Home() {
     })
     .sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime())
     .slice(0, 10)
+
+  const sortArrow = (col: typeof sortBy) => {
+    if (sortBy !== col) return <span style={{ opacity: 0.25, marginLeft: 4 }}>↕</span>
+    return <span style={{ marginLeft: 4, color: 'var(--accent)' }}>{sortDir === 'asc' ? '↑' : '↓'}</span>
+  }
 
   // ─── CSS variables ────────────────────────────────────────────────────────
   const css = `
@@ -256,7 +284,9 @@ export default function Home() {
     .df-num  { font-variant-numeric: tabular-nums; letter-spacing: -0.015em; }
     .df-table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow-sm); }
     .df-table { width: 100%; border-collapse: separate; border-spacing: 0; }
-    .df-table thead th { background: var(--surface-2); text-align: left; font-size: 11px; font-weight: 500; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.06em; padding: 13px 20px; border-bottom: 1px solid var(--border); }
+    .df-table thead th { background: var(--surface-2); text-align: left; font-size: 11px; font-weight: 500; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.06em; padding: 13px 20px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    .df-table thead th.sortable { cursor: pointer; user-select: none; }
+    .df-table thead th.sortable:hover { color: var(--text-2); }
     .df-table tbody td { padding: 16px 20px; vertical-align: middle; border-bottom: 1px solid var(--border); font-size: 13px; }
     .df-table tbody tr:last-child td { border-bottom: none; }
     .df-table tbody tr:hover { background: oklch(0.975 0.003 95); }
@@ -504,23 +534,34 @@ export default function Home() {
             <table className="df-table">
               <thead>
                 <tr>
-                  <th style={{ width: '44%' }}>Business</th>
+                  <th style={{ width: '38%' }}>Business</th>
                   <th>Source</th>
-                  <th style={{ textAlign: 'right' }}>Asking</th>
-                  <th style={{ textAlign: 'right' }}>Revenue</th>
-                  <th style={{ textAlign: 'right' }}>Cash Flow</th>
-                  <th style={{ textAlign: 'right' }}>Added</th>
+                  <th className="sortable" onClick={() => handleSort('location')}>
+                    State {sortArrow('location')}
+                  </th>
+                  <th className="sortable" style={{ textAlign: 'right' }} onClick={() => handleSort('asking_price')}>
+                    Asking {sortArrow('asking_price')}
+                  </th>
+                  <th className="sortable" style={{ textAlign: 'right' }} onClick={() => handleSort('annual_revenue')}>
+                    Revenue {sortArrow('annual_revenue')}
+                  </th>
+                  <th className="sortable" style={{ textAlign: 'right' }} onClick={() => handleSort('cash_flow')}>
+                    Cash Flow {sortArrow('cash_flow')}
+                  </th>
+                  <th className="sortable" style={{ textAlign: 'right' }} onClick={() => handleSort('first_seen_at')}>
+                    Added {sortArrow('first_seen_at')}
+                  </th>
                   <th style={{ width: 40 }} />
                 </tr>
               </thead>
               <tbody>
                 {storedLoading && stored.length === 0 ? (
-                  <tr><td colSpan={7} style={{ padding: '48px 20px', textAlign: 'center', color: 'var(--text-4)', fontSize: 13 }}>Loading…</td></tr>
-                ) : visibleListings.length === 0 ? (
-                  <tr><td colSpan={7} style={{ padding: '48px 20px', textAlign: 'center', color: 'var(--text-4)', fontSize: 13 }}>
+                  <tr><td colSpan={8} style={{ padding: '48px 20px', textAlign: 'center', color: 'var(--text-4)', fontSize: 13 }}>Loading…</td></tr>
+                ) : sortedListings.length === 0 ? (
+                  <tr><td colSpan={8} style={{ padding: '48px 20px', textAlign: 'center', color: 'var(--text-4)', fontSize: 13 }}>
                     {stored.length === 0 ? 'No listings yet — click a source above to scrape.' : 'No listings match your filters.'}
                   </td></tr>
-                ) : visibleListings.map((l) => {
+                ) : sortedListings.map((l) => {
                   const hasPriceChange = !!l.price_changed_at
                   const dotColor = SOURCE_DOTS[l.source] || '#aaa'
                   return (
@@ -541,9 +582,6 @@ export default function Home() {
                             >
                               {l.title}
                             </a>
-                            {l.location && (
-                              <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>{l.location}</div>
-                            )}
                           </div>
                         </div>
                       </td>
@@ -554,6 +592,9 @@ export default function Home() {
                         >
                           {l.source}
                         </span>
+                      </td>
+                      <td>
+                        <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{l.location ?? '—'}</span>
                       </td>
                       <td style={{ textAlign: 'right' }}>
                         <div className="df-num" style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', letterSpacing: '-0.02em' }}>
@@ -603,11 +644,11 @@ export default function Home() {
           <div id="df-mobile-cards">
             {storedLoading && stored.length === 0 ? (
               <div className="df-card" style={{ padding: '40px 20px', textAlign: 'center', fontSize: 13, color: 'var(--text-4)' }}>Loading…</div>
-            ) : visibleListings.length === 0 ? (
+            ) : sortedListings.length === 0 ? (
               <div className="df-card" style={{ padding: '40px 20px', textAlign: 'center', fontSize: 13, color: 'var(--text-4)' }}>
                 {stored.length === 0 ? 'No listings yet — tap a source to scrape.' : 'No listings match your filters.'}
               </div>
-            ) : visibleListings.map((l) => {
+            ) : sortedListings.map((l) => {
               const hasPriceChange = !!l.price_changed_at
               const dotColor = SOURCE_DOTS[l.source] || '#aaa'
               return (
