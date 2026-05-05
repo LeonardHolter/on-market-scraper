@@ -68,7 +68,7 @@ export default function Home() {
   // Sources that are currently INCLUDED in the table. Default: every known source.
   // Click a source pill to toggle that broker on/off.
   const [enabledSources, setEnabledSources] = useState<Set<string>>(
-    () => new Set(SITES.map((s) => s.source))
+    () => new Set(SITES.map((s) => s.source).filter((s) => s !== 'businessesforsale'))
   )
   const [stored, setStored] = useState<StoredListing[]>([])
   const [bySource, setBySource] = useState<Record<string, number>>({})
