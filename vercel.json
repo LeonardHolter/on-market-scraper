@@ -3,7 +3,7 @@
   "crons": [
     {
       "path": "/api/cron/rescrape-all",
-      "schedule": "0 9 * * *"
+      "schedule": "0 5 * * *"
     }
   ]
 }
