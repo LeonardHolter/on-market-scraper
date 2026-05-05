@@ -32,6 +32,7 @@ const SOURCE_DOTS: Record<string, string> = {
   fcbb:    '#7c5cbf',
   zoom:    '#2a9d8f',
   viking:  '#c0392b',
+  murphy:  '#e67e22',
 }
 
 export default function FindListings() {

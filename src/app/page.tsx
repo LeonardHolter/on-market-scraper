@@ -51,6 +51,7 @@ const SITES: SiteConfig[] = [
   { name: 'First Choice Business Brokers', source: 'fcbb',    phase: 1, url: 'fcbb.com',                endpoint: '/api/scrape/fcbb' },
   { name: 'Zoom Business Brokers',         source: 'zoom',    phase: 1, url: 'zoombusinessbrokers.com', endpoint: '/api/scrape/zoom' },
   { name: 'Viking Mergers & Acquisitions', source: 'viking',  phase: 1, url: 'vikingmergers.com',       endpoint: '/api/scrape/viking' },
+  { name: 'Murphy Business Brokerage',     source: 'murphy',  phase: 1, url: 'murphybusiness.com',      endpoint: '/api/scrape/murphy' },
 ]
 
 const SOURCE_DOTS: Record<string, string> = {
@@ -58,6 +59,7 @@ const SOURCE_DOTS: Record<string, string> = {
   fcbb:    '#7c5cbf',
   zoom:    '#2a9d8f',
   viking:  '#c0392b',
+  murphy:  '#e67e22',
 }
 
 interface ScrapeStatus {
@@ -95,7 +97,7 @@ export default function Home() {
   const [maxPriceInput, setMaxPriceInput] = useState('10000000')
   const [hideFranchises, setHideFranchises] = useState(true)
   const [excludeKeywords, setExcludeKeywords] = useState<string>('')
-  const [sortBy, setSortBy] = useState<'location' | 'asking_price' | 'annual_revenue' | 'cash_flow' | 'first_seen_at'>('cash_flow')
+  const [sortBy, setSortBy] = useState<'location' | 'asking_price' | 'annual_revenue' | 'cash_flow' | 'multiple' | 'first_seen_at'>('cash_flow')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [now, setNow] = useState<number>(() => Date.now())
   const [entitlement, setEntitlement] = useState<Entitlement | null>(null)
@@ -271,6 +273,10 @@ export default function Home() {
       cmp = la < lb ? -1 : la > lb ? 1 : 0
     } else if (sortBy === 'first_seen_at') {
       cmp = new Date(a.first_seen_at).getTime() - new Date(b.first_seen_at).getTime()
+    } else if (sortBy === 'multiple') {
+      const ma = computeMultiple(a)
+      const mb = computeMultiple(b)
+      cmp = (ma ?? -Infinity) - (mb ?? -Infinity)
     } else {
       const va = a[sortBy] ?? -Infinity
       const vb = b[sortBy] ?? -Infinity
@@ -288,6 +294,19 @@ export default function Home() {
 
   const fmtMoneyFull = (n: number | null, fallback: string | null) =>
     n != null ? `$${n.toLocaleString()}` : fallback || '—'
+
+  // Multiple = asking_price / cash_flow. Skip nonsensical values.
+  function computeMultiple(l: StoredListing): number | null {
+    if (l.asking_price == null || l.cash_flow == null) return null
+    if (l.cash_flow <= 0) return null
+    const m = l.asking_price / l.cash_flow
+    if (!isFinite(m) || m <= 0) return null
+    return m
+  }
+  const fmtMultiple = (m: number | null): string => {
+    if (m == null) return '—'
+    return `${m.toFixed(1)}x`
+  }
 
   const activity = stored
     .flatMap<{ ts: string; kind: 'sold' | 'price' | 'delisted'; listing: StoredListing }>((l) => {
@@ -443,7 +462,7 @@ export default function Home() {
           )}
 
           {/* ── Source cards ─────────────────────────────────────────────── */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 24 }}>
             {SITES.map((site) => {
               const status = scrapeStatus[site.source]
               const count = bySource[site.source] || 0
@@ -617,11 +636,11 @@ export default function Home() {
                   <th className="sortable" style={{ textAlign: 'right' }} onClick={() => handleSort('asking_price')}>
                     Asking {sortArrow('asking_price')}
                   </th>
-                  <th className="sortable" style={{ textAlign: 'right' }} onClick={() => handleSort('annual_revenue')}>
-                    Revenue {sortArrow('annual_revenue')}
-                  </th>
                   <th className="sortable" style={{ textAlign: 'right' }} onClick={() => handleSort('cash_flow')}>
                     Cash Flow {sortArrow('cash_flow')}
+                  </th>
+                  <th className="sortable" style={{ textAlign: 'right' }} onClick={() => handleSort('multiple')}>
+                    Multiple {sortArrow('multiple')}
                   </th>
                   <th className="sortable" style={{ textAlign: 'right' }} onClick={() => handleSort('first_seen_at')}>
                     Added {sortArrow('first_seen_at')}
@@ -682,13 +701,13 @@ export default function Home() {
                         )}
                       </td>
                       <td style={{ textAlign: 'right' }}>
-                        <span className="df-num" style={{ fontSize: 13, color: 'var(--text-2)' }}>
-                          {fmtMoneyFull(l.annual_revenue, l.annual_revenue_text)}
+                        <span className="df-num" style={{ fontSize: 13, color: 'var(--money)', fontWeight: 600 }}>
+                          {fmtMoneyFull(l.cash_flow, l.cash_flow_text)}
                         </span>
                       </td>
                       <td style={{ textAlign: 'right' }}>
-                        <span className="df-num" style={{ fontSize: 13, color: 'var(--money)', fontWeight: 600 }}>
-                          {fmtMoneyFull(l.cash_flow, l.cash_flow_text)}
+                        <span className="df-num" style={{ fontSize: 13, color: 'var(--text-2)', fontWeight: 500 }}>
+                          {fmtMultiple(computeMultiple(l))}
                         </span>
                       </td>
                       <td style={{ textAlign: 'right' }}>
@@ -747,10 +766,10 @@ export default function Home() {
                       Asking <span className="df-num" style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{fmtMoneyCompact(l.asking_price)}</span>
                     </span>
                     <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
-                      Revenue <span className="df-num" style={{ color: 'var(--text-2)' }}>{fmtMoneyFull(l.annual_revenue, l.annual_revenue_text)}</span>
+                      Cash flow <span className="df-num" style={{ fontWeight: 600, color: 'var(--money)' }}>{fmtMoneyFull(l.cash_flow, l.cash_flow_text)}</span>
                     </span>
                     <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
-                      Cash flow <span className="df-num" style={{ fontWeight: 600, color: 'var(--money)' }}>{fmtMoneyFull(l.cash_flow, l.cash_flow_text)}</span>
+                      Multiple <span className="df-num" style={{ fontWeight: 500, color: 'var(--text-2)' }}>{fmtMultiple(computeMultiple(l))}</span>
                     </span>
                   </div>
                 </div>

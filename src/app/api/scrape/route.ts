@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import type { Browser, Page } from 'puppeteer'
 import { supabaseAdmin } from '@/lib/supabase'
 import { evaluateListing } from '@/lib/openai'
 
@@ -14,7 +15,9 @@ const USER_AGENT =
 type FakePlugin = { name: string }
 type FakePluginArray = FakePlugin[] & { item: (i: number) => FakePlugin; namedItem: (n: string) => FakePlugin | undefined; refresh: () => void }
 
-async function applyStealthPatches(page: { evaluateOnNewDocument: (fn: () => void) => Promise<void> }) {
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+async function applyStealthPatches(page: Page) {
   await page.evaluateOnNewDocument(() => {
     // Remove webdriver flag
     Object.defineProperty(navigator, 'webdriver', { get: () => false })
@@ -48,7 +51,7 @@ async function applyStealthPatches(page: { evaluateOnNewDocument: (fn: () => voi
 }
 
 export async function POST(request: NextRequest) {
-  let browser: { close: () => Promise<void> } | null = null
+  let browser: Browser | null = null
 
   try {
     const { platform } = await request.json()
@@ -86,7 +89,7 @@ export async function POST(request: NextRequest) {
 
     console.log('Tab 1: Opening bizbuysell.com homepage...')
     await tab1.goto('https://www.bizbuysell.com/', { waitUntil: 'networkidle2', timeout: 30000 })
-    await tab1.waitForTimeout(3000)
+    await sleep(3000)
 
     // Tab 2: businesses-for-sale
     const tab2 = await browser.newPage()
@@ -101,7 +104,7 @@ export async function POST(request: NextRequest) {
     })
 
     console.log('Waiting 5 seconds before opening Tab 3...')
-    await tab2.waitForTimeout(5000)
+    await sleep(5000)
 
     // Tab 3: actual target
     const tab3 = await browser.newPage()
@@ -111,7 +114,7 @@ export async function POST(request: NextRequest) {
 
     console.log('Tab 3: Navigating to target URL...')
     await tab3.goto(TARGET_URL, { waitUntil: 'networkidle2', timeout: 30000 })
-    await tab3.waitForTimeout(3000)
+    await sleep(3000)
 
     // Check blocked
     const blocked = await tab3.evaluate(() =>
@@ -124,7 +127,7 @@ export async function POST(request: NextRequest) {
       console.log('Tab 3 blocked, retrying via Tab 2...')
       await tab2.bringToFront()
       await tab2.goto(TARGET_URL, { waitUntil: 'networkidle2', timeout: 30000 })
-      await tab2.waitForTimeout(3000)
+      await sleep(3000)
 
       const stillBlocked = await tab2.evaluate(() =>
         document.body?.innerText?.includes('Access Denied')
@@ -199,7 +202,7 @@ export async function POST(request: NextRequest) {
     })
 
     console.log(`Extracted ${rawListings.length} listings`)
-    await activePage.waitForTimeout(3000)
+    await sleep(3000)
     await browser.close()
     browser = null
 
