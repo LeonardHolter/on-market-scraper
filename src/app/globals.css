@@ -1,8 +1,26 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Deal Flow design tokens (premium light SaaS) */
+  --bg:           oklch(0.985 0.002 95);
+  --surface:      #ffffff;
+  --surface-2:    oklch(0.975 0.003 95);
+  --border:       oklch(0.92 0.004 95);
+  --border-strong:oklch(0.86 0.005 95);
+  --text:         oklch(0.18 0.005 250);
+  --text-2:       oklch(0.42 0.008 250);
+  --text-3:       oklch(0.62 0.008 250);
+  --text-4:       oklch(0.78 0.005 250);
+  --accent:       oklch(0.58 0.18 252);
+  --accent-soft:  oklch(0.95 0.04 252);
+  --money:        oklch(0.42 0.13 155);
+  --warn:         oklch(0.62 0.15 65);
+  --danger:       oklch(0.55 0.18 25);
+  --shadow-sm:    0 1px 2px 0 oklch(0.18 0.005 250 / 0.04);
+  --shadow-md:    0 1px 3px 0 oklch(0.18 0.005 250 / 0.06), 0 4px 12px -4px oklch(0.18 0.005 250 / 0.05);
+
+  --background: var(--bg);
+  --foreground: var(--text);
 }
 
 @theme inline {
@@ -12,15 +30,10 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-feature-settings: 'ss01', 'cv11';
+  letter-spacing: -0.01em;
 }

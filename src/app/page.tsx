@@ -1,6 +1,16 @@
 'use client'
 
+import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
+
+interface Entitlement {
+  isAuthed: boolean
+  isSubscribed: boolean
+  email: string | null
+  clicksUsed: number
+  clicksRemaining: number
+  limit: number
+}
 
 interface StoredListing {
   id: string
@@ -86,7 +96,55 @@ export default function Home() {
   const [sortBy, setSortBy] = useState<'location' | 'asking_price' | 'annual_revenue' | 'cash_flow' | 'first_seen_at'>('cash_flow')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [now, setNow] = useState<number>(() => Date.now())
+  const [entitlement, setEntitlement] = useState<Entitlement | null>(null)
+  const [paywallOpen, setPaywallOpen] = useState(false)
+  const [pendingClickId, setPendingClickId] = useState<string | null>(null)
   const lastRunRef = useRef<number>(0)
+
+  // Fetch entitlement on mount so we can render the free-click counter
+  useEffect(() => {
+    fetch('/api/track-click')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.ok) setEntitlement({
+          isAuthed: d.isAuthed, isSubscribed: d.isSubscribed, email: d.email ?? null,
+          clicksUsed: d.clicksUsed, clicksRemaining: d.clicksRemaining, limit: d.limit,
+        })
+      })
+      .catch(() => {})
+  }, [])
+
+  const handleListingClick = useCallback(
+    async (listing: StoredListing, e: React.MouseEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (pendingClickId) return
+      setPendingClickId(listing.id)
+      try {
+        const res = await fetch('/api/track-click', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ listingId: listing.id }),
+        })
+        const data = await res.json()
+        if (data?.paywall) {
+          setEntitlement((prev) => prev ? { ...prev, clicksUsed: data.clicksUsed, clicksRemaining: 0, isAuthed: data.isAuthed, isSubscribed: data.isSubscribed } : prev)
+          setPaywallOpen(true)
+          return
+        }
+        if (data?.ok && data.redirect) {
+          setEntitlement((prev) => prev ? { ...prev, clicksUsed: data.clicksUsed, clicksRemaining: data.clicksRemaining, isAuthed: data.isAuthed, isSubscribed: data.isSubscribed } : prev)
+          window.open(data.redirect, '_blank', 'noopener,noreferrer')
+        }
+      } catch {
+        // Fallback: open the listing anyway so we never block the user on a network blip
+        if (listing.source_listing_url) window.open(listing.source_listing_url, '_blank', 'noopener,noreferrer')
+      } finally {
+        setPendingClickId(null)
+      }
+    },
+    [pendingClickId]
+  )
 
   const refreshStored = useCallback(async (source: string | null = null) => {
     setStoredLoading(true)
@@ -335,6 +393,41 @@ export default function Home() {
                   <span style={{ width: 5, height: 5, borderRadius: 999, background: 'oklch(0.52 0.16 155)', display: 'inline-block' }} />
                   Live
                 </span>
+
+                {/* Account / clicks */}
+                {entitlement && (
+                  entitlement.isSubscribed ? (
+                    <Link href="/account" style={{
+                      fontSize: 12, fontWeight: 500, color: 'var(--text-2)',
+                      background: 'var(--surface)', border: '1px solid var(--border)',
+                      borderRadius: 999, padding: '4px 12px', textDecoration: 'none',
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                    }}>
+                      <span style={{ width: 5, height: 5, borderRadius: 999, background: 'oklch(0.52 0.16 155)', display: 'inline-block' }} />
+                      Pro
+                    </Link>
+                  ) : entitlement.isAuthed ? (
+                    <Link href="/pricing" style={{
+                      fontSize: 12, fontWeight: 500, color: 'var(--accent)',
+                      background: 'var(--accent-soft)', borderRadius: 999, padding: '4px 12px',
+                      textDecoration: 'none',
+                    }}>
+                      Upgrade · {entitlement.clicksRemaining} free left
+                    </Link>
+                  ) : (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <span className="df-pill" style={{ background: 'var(--surface-2)', color: 'var(--text-3)', border: '1px solid var(--border)' }}>
+                        {entitlement.clicksRemaining} / {entitlement.limit} free clicks
+                      </span>
+                      <Link href="/auth/sign-in" style={{
+                        fontSize: 12, fontWeight: 500, color: 'var(--text-2)',
+                        textDecoration: 'none',
+                      }}>
+                        Sign in
+                      </Link>
+                    </span>
+                  )
+                )}
               </div>
               <p style={{ fontSize: 13, color: 'var(--text-3)', margin: 0 }}>
                 Broker listings refreshed daily at 12:00 AM EST
@@ -577,7 +670,8 @@ export default function Home() {
                             <a
                               href={l.source_listing_url}
                               target="_blank" rel="noopener noreferrer"
-                              style={{ fontSize: 13, fontWeight: 500, letterSpacing: '-0.01em', color: 'var(--text)', display: 'block', lineHeight: 1.45 }}
+                              onClick={(e) => handleListingClick(l, e)}
+                              style={{ fontSize: 13, fontWeight: 500, letterSpacing: '-0.01em', color: 'var(--text)', display: 'block', lineHeight: 1.45, cursor: 'pointer' }}
                               title={l.title}
                             >
                               {l.title}
@@ -669,7 +763,8 @@ export default function Home() {
                       <a
                         href={l.source_listing_url}
                         target="_blank" rel="noopener noreferrer"
-                        style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)', lineHeight: 1.4, display: 'block' }}
+                        onClick={(e) => handleListingClick(l, e)}
+                        style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)', lineHeight: 1.4, display: 'block', cursor: 'pointer' }}
                       >
                         {l.title}
                       </a>
@@ -752,6 +847,91 @@ export default function Home() {
           )}
 
         </div>
+
+        {/* ── Paywall modal ─────────────────────────────────────────────── */}
+        {paywallOpen && (
+          <div
+            onClick={() => setPaywallOpen(false)}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 50,
+              background: 'oklch(0.18 0.005 250 / 0.45)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: 20, backdropFilter: 'blur(4px)',
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: 'var(--surface)', borderRadius: 16,
+                boxShadow: '0 20px 60px -10px oklch(0.18 0.005 250 / 0.3)',
+                padding: 32, maxWidth: 440, width: '100%', boxSizing: 'border-box',
+                border: '1px solid var(--border)',
+              }}
+            >
+              <div style={{
+                width: 44, height: 44, borderRadius: 12, marginBottom: 18,
+                background: 'var(--accent-soft)', color: 'var(--accent)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 22,
+              }}>
+                ✦
+              </div>
+              <h2 style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.025em', margin: 0, color: 'var(--text)' }}>
+                You&apos;ve used your free previews
+              </h2>
+              <p style={{ fontSize: 13, color: 'var(--text-3)', marginTop: 8, lineHeight: 1.55 }}>
+                Subscribe for <strong style={{ color: 'var(--text)' }}>$19/month</strong> to unlock unlimited
+                listing access, daily refreshes, and price-change alerts. Cancel anytime.
+              </p>
+
+              <ul style={{ listStyle: 'none', padding: 0, margin: '20px 0 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {['Unlimited listings', 'Daily broker refresh', 'Price-change alerts', 'AI search'].map((f) => (
+                  <li key={f} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--text-2)' }}>
+                    <span style={{
+                      width: 16, height: 16, borderRadius: 999, flexShrink: 0,
+                      background: 'var(--accent-soft)', color: 'var(--accent)',
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <svg width="9" height="9" viewBox="0 0 12 12" fill="none">
+                        <path d="M2 6l3 3 5-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </span>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+
+              <Link
+                href={entitlement?.isAuthed ? '/pricing' : '/auth/sign-up?next=/pricing'}
+                style={{
+                  display: 'block', textAlign: 'center', textDecoration: 'none',
+                  background: 'var(--accent)', color: 'white',
+                  borderRadius: 10, padding: '12px 16px', fontSize: 14, fontWeight: 500,
+                }}
+              >
+                {entitlement?.isAuthed ? 'Subscribe — $19 / month' : 'Sign up & subscribe'}
+              </Link>
+              {!entitlement?.isAuthed && (
+                <p style={{ fontSize: 12, color: 'var(--text-3)', textAlign: 'center', marginTop: 12 }}>
+                  Already have an account?{' '}
+                  <Link href="/auth/sign-in?next=/pricing" style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 500 }}>
+                    Sign in
+                  </Link>
+                </p>
+              )}
+              <button
+                onClick={() => setPaywallOpen(false)}
+                style={{
+                  width: '100%', marginTop: 8, padding: '10px',
+                  background: 'transparent', border: 'none',
+                  color: 'var(--text-4)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                Maybe later
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </>
   )
