@@ -82,6 +82,7 @@ export default function Home() {
   const [maxPriceInput, setMaxPriceInput] = useState('10000000')
   const [hideFranchises, setHideFranchises] = useState(true)
   const [excludeKeywords, setExcludeKeywords] = useState<string>('')
+  const [now, setNow] = useState<number>(() => Date.now())
   const lastRunRef = useRef<number>(0)
 
   const refreshStored = useCallback(async (source: string | null = null) => {
@@ -197,6 +198,28 @@ export default function Home() {
     }
   }, [runScrape])
 
+  // Tick once a second so the countdown timer updates live
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [])
+
+  // Vercel cron is "0 5 * * *" UTC → 12:00 AM EST. Compute next firing.
+  const nextRescrapeAt = (() => {
+    const next = new Date(now)
+    next.setUTCHours(5, 0, 0, 0)
+    if (next.getTime() <= now) next.setUTCDate(next.getUTCDate() + 1)
+    return next.getTime()
+  })()
+  const msUntilRescrape = Math.max(0, nextRescrapeAt - now)
+  const fmtCountdown = (ms: number) => {
+    const totalSec = Math.floor(ms / 1000)
+    const h = Math.floor(totalSec / 3600)
+    const m = Math.floor((totalSec % 3600) / 60)
+    const s = totalSec % 60
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+  }
+
   const totalStored = Object.values(bySource).reduce((a, b) => a + b, 0)
   // Show last-scrape status for the most-recently-run scrape (any source)
   const activeStatus = (() => {
@@ -262,11 +285,11 @@ export default function Home() {
     <div className="min-h-screen bg-gray-950 px-6 py-10">
       <div className="max-w-6xl mx-auto space-y-8">
 
-        <div className="flex items-baseline justify-between">
+        <div className="flex items-baseline justify-between gap-6">
           <div>
             <h1 className="text-2xl font-bold text-white tracking-tight">Scraper</h1>
             <p className="text-sm text-gray-500 mt-1">
-              On-market broker sources scraped hourly for deal flow.
+              On-market broker sources rescraped daily at 12:00 AM EST.
               {lastAutoRun && (
                 <span className="ml-2 text-gray-600">
                   · last auto-run {new Date(lastAutoRun).toLocaleTimeString()}
@@ -274,9 +297,21 @@ export default function Home() {
               )}
             </p>
           </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold text-white">{totalStored.toLocaleString()}</div>
-            <div className="text-[11px] text-gray-500 uppercase tracking-wider">Total listings stored</div>
+          <div className="flex items-baseline gap-8">
+            <div className="text-right">
+              <div className="text-2xl font-bold text-white tabular-nums">
+                {fmtCountdown(msUntilRescrape)}
+              </div>
+              <div className="text-[11px] text-gray-500 uppercase tracking-wider">
+                Next rescrape
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-bold text-white">{totalStored.toLocaleString()}</div>
+              <div className="text-[11px] text-gray-500 uppercase tracking-wider">
+                Total listings stored
+              </div>
+            </div>
           </div>
         </div>
 
