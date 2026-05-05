@@ -37,11 +37,9 @@ interface SiteConfig {
 }
 
 const SITES: SiteConfig[] = [
-  { name: 'Synergy Business Brokers',      source: 'synergy',           phase: 1, url: 'synergybb.com',               endpoint: '/api/scrape/synergy' },
-  { name: 'Bateson Business Brokerage',    source: 'bateson',           phase: 1, url: 'breareger.dealrelations.com', endpoint: '/api/scrape/bateson' },
-  { name: 'BusinessesForSale.com',         source: 'businessesforsale', phase: 1, url: 'us.businessesforsale.com',    endpoint: '/api/scrape/businessesforsale' },
-  { name: 'First Choice Business Brokers', source: 'fcbb',              phase: 1, url: 'fcbb.com',                    endpoint: '/api/scrape/fcbb' },
-  { name: 'Zoom Business Brokers',         source: 'zoom',              phase: 1, url: 'zoombusinessbrokers.com',     endpoint: '/api/scrape/zoom' },
+  { name: 'Synergy Business Brokers',      source: 'synergy', phase: 1, url: 'synergybb.com',           endpoint: '/api/scrape/synergy' },
+  { name: 'First Choice Business Brokers', source: 'fcbb',    phase: 1, url: 'fcbb.com',                endpoint: '/api/scrape/fcbb' },
+  { name: 'Zoom Business Brokers',         source: 'zoom',    phase: 1, url: 'zoombusinessbrokers.com', endpoint: '/api/scrape/zoom' },
 ]
 
 interface ScrapeStatus {
@@ -66,7 +64,7 @@ const HOUR_MS = 60 * 60 * 1000
 
 export default function Home() {
   const [enabledSources, setEnabledSources] = useState<Set<string>>(
-    () => new Set(SITES.map((s) => s.source).filter((s) => s !== 'businessesforsale'))
+    () => new Set(SITES.map((s) => s.source))
   )
   const [stored, setStored] = useState<StoredListing[]>([])
   const [bySource, setBySource] = useState<Record<string, number>>({})
@@ -157,7 +155,7 @@ export default function Home() {
       if (now - lastRunRef.current < HOUR_MS) return
       lastRunRef.current = now
       const cronSafe = SITES.filter(
-        (s) => s.source === 'synergy' || s.source === 'businessesforsale' || s.source === 'fcbb' || s.source === 'zoom'
+        (s) => s.source === 'synergy' || s.source === 'fcbb' || s.source === 'zoom'
       )
       for (const site of cronSafe) await runScrape(site, { silent: true })
       setLastAutoRun(new Date().toISOString())
