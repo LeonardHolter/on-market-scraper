@@ -13,6 +13,7 @@ const SOURCES = [
   { name: 'synergy', endpoint: '/api/scrape/synergy', method: 'POST' as const },
   { name: 'fcbb', endpoint: '/api/scrape/fcbb', method: 'POST' as const },
   { name: 'zoom', endpoint: '/api/scrape/zoom', method: 'POST' as const },
+  { name: 'sunbelt', endpoint: '/api/scrape/sunbelt', method: 'POST' as const },
 ]
 
 export async function GET(req: NextRequest) {
