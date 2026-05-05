@@ -356,6 +356,9 @@ export default function Home() {
                 <h1 style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.025em', margin: 0, color: 'var(--text)' }}>
                   Nemmis
                 </h1>
+                <span style={{ fontSize: 13, color: 'var(--text-3)', fontWeight: 400, letterSpacing: '-0.005em' }}>
+                  All broker listings in one place
+                </span>
                 <span className="df-pill" style={{ background: '#d1fae5', color: '#065f46' }}>
                   <span style={{ width: 5, height: 5, borderRadius: 999, background: '#10b981', display: 'inline-block' }} />
                   Live
