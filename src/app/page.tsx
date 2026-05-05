@@ -37,11 +37,11 @@ interface SiteConfig {
 }
 
 const SITES: SiteConfig[] = [
-  { name: 'Synergy Business Brokers',   source: 'synergy',          phase: 1, url: 'synergybb.com',                  endpoint: '/api/scrape/synergy' },
-  { name: 'Bateson Business Brokerage', source: 'bateson',          phase: 1, url: 'breareger.dealrelations.com',    endpoint: '/api/scrape/bateson' },
-  { name: 'BusinessesForSale.com',      source: 'businessesforsale',phase: 1, url: 'us.businessesforsale.com',       endpoint: '/api/scrape/businessesforsale' },
-  { name: 'First Choice Business Brokers', source: 'fcbb',         phase: 1, url: 'fcbb.com',                       endpoint: '/api/scrape/fcbb' },
-  { name: 'Zoom Business Brokers',      source: 'zoom',             phase: 1, url: 'zoombusinessbrokers.com',        endpoint: '/api/scrape/zoom' },
+  { name: 'Synergy Business Brokers',      source: 'synergy',           phase: 1, url: 'synergybb.com',               endpoint: '/api/scrape/synergy' },
+  { name: 'Bateson Business Brokerage',    source: 'bateson',           phase: 1, url: 'breareger.dealrelations.com', endpoint: '/api/scrape/bateson' },
+  { name: 'BusinessesForSale.com',         source: 'businessesforsale', phase: 1, url: 'us.businessesforsale.com',    endpoint: '/api/scrape/businessesforsale' },
+  { name: 'First Choice Business Brokers', source: 'fcbb',              phase: 1, url: 'fcbb.com',                    endpoint: '/api/scrape/fcbb' },
+  { name: 'Zoom Business Brokers',         source: 'zoom',              phase: 1, url: 'zoombusinessbrokers.com',     endpoint: '/api/scrape/zoom' },
 ]
 
 interface ScrapeStatus {
@@ -65,8 +65,6 @@ const emptyStatus: ScrapeStatus = { loading: false, error: null, storage: null, 
 const HOUR_MS = 60 * 60 * 1000
 
 export default function Home() {
-  // Sources that are currently INCLUDED in the table. Default: every known source.
-  // Click a source pill to toggle that broker on/off.
   const [enabledSources, setEnabledSources] = useState<Set<string>>(
     () => new Set(SITES.map((s) => s.source).filter((s) => s !== 'businessesforsale'))
   )
@@ -103,7 +101,6 @@ export default function Home() {
     }
   }, [])
 
-  // Always pull all sources from the API; filtering is now client-side via enabledSources
   useEffect(() => {
     refreshStored(null)
   }, [refreshStored])
@@ -117,12 +114,7 @@ export default function Home() {
         if (!res.ok || !data.success) throw new Error(data.error || `HTTP ${res.status}`)
         setScrapeStatus((s) => ({
           ...s,
-          [site.source]: {
-            loading: false,
-            error: null,
-            storage: data.storage,
-            scrapedAt: data.scrapedAt,
-          },
+          [site.source]: { loading: false, error: null, storage: data.storage, scrapedAt: data.scrapedAt },
         }))
       } catch (e) {
         setScrapeStatus((s) => ({
@@ -144,10 +136,7 @@ export default function Home() {
   const toggleHidden = useCallback(async (listing: StoredListing) => {
     const newVal = !listing.is_hidden
     setHidingId(listing.id)
-    // Optimistic update
-    setStored((prev) =>
-      prev.map((l) => (l.id === listing.id ? { ...l, is_hidden: newVal } : l))
-    )
+    setStored((prev) => prev.map((l) => (l.id === listing.id ? { ...l, is_hidden: newVal } : l)))
     try {
       const res = await fetch(`/api/broker-listings/${listing.id}`, {
         method: 'PATCH',
@@ -156,56 +145,36 @@ export default function Home() {
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
     } catch {
-      // Roll back on failure
-      setStored((prev) =>
-        prev.map((l) => (l.id === listing.id ? { ...l, is_hidden: !newVal } : l))
-      )
+      setStored((prev) => prev.map((l) => (l.id === listing.id ? { ...l, is_hidden: !newVal } : l)))
     } finally {
       setHidingId(null)
     }
   }, [])
 
-  // Client-side hourly auto-rescrape (works while dashboard is open, dev fallback)
   useEffect(() => {
     const tick = async () => {
       const now = Date.now()
       if (now - lastRunRef.current < HOUR_MS) return
       lastRunRef.current = now
-
-      // Only run cron-safe sources here. Bateson needs a browser popup; skip it.
       const cronSafe = SITES.filter(
-        (s) =>
-          s.source === 'synergy' ||
-          s.source === 'businessesforsale' ||
-          s.source === 'fcbb' ||
-          s.source === 'zoom'
+        (s) => s.source === 'synergy' || s.source === 'businessesforsale' || s.source === 'fcbb' || s.source === 'zoom'
       )
-      for (const site of cronSafe) {
-        await runScrape(site, { silent: true })
-      }
+      for (const site of cronSafe) await runScrape(site, { silent: true })
       setLastAutoRun(new Date().toISOString())
     }
-
-    // Stagger first auto-run by 30s after page load so it doesn't fight the initial fetch
     const initial = setTimeout(() => {
-      lastRunRef.current = Date.now() - HOUR_MS // force first tick to run
+      lastRunRef.current = Date.now() - HOUR_MS
       tick()
     }, 30_000)
-    const interval = setInterval(tick, 60_000) // check every minute, run if hour elapsed
-
-    return () => {
-      clearTimeout(initial)
-      clearInterval(interval)
-    }
+    const interval = setInterval(tick, 60_000)
+    return () => { clearTimeout(initial); clearInterval(interval) }
   }, [runScrape])
 
-  // Tick once a second so the countdown timer updates live
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(t)
   }, [])
 
-  // Vercel cron is "0 5 * * *" UTC → 12:00 AM EST. Compute next firing.
   const nextRescrapeAt = (() => {
     const next = new Date(now)
     next.setUTCHours(5, 0, 0, 0)
@@ -222,55 +191,41 @@ export default function Home() {
   }
 
   const totalStored = Object.values(bySource).reduce((a, b) => a + b, 0)
-  // Show last-scrape status for the most-recently-run scrape (any source)
+
   const activeStatus = (() => {
     let latest: ScrapeStatus | null = null
     let latestTs = 0
     for (const s of Object.values(scrapeStatus)) {
       if (!s.scrapedAt) continue
       const t = new Date(s.scrapedAt).getTime()
-      if (t > latestTs) {
-        latestTs = t
-        latest = s
-      }
+      if (t > latestTs) { latestTs = t; latest = s }
     }
     return latest
   })()
+
   const filteredByCashFlow = stored.filter((l) => {
-    // Hidden source toggle: drop listings whose source has been turned off
     if (!enabledSources.has(l.source)) return false
-    // Cash flow must always be present
     if (l.cash_flow == null) return false
     if (minCashFlow <= 0) return true
     return l.cash_flow >= minCashFlow
   })
-  const excludedKeywordList = excludeKeywords
-    .split(',')
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean)
+
+  const excludedKeywordList = excludeKeywords.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)
 
   const visibleListings = filteredByCashFlow.filter((l) => {
-    // Drop sold and delisted listings
     if (l.is_sold || l.delisted_at) return false
-    // Drop franchise listings if toggle is on
     if (hideFranchises && /\bfranchise[sd]?\b/i.test(l.title)) return false
-    // Drop listings above max asking price (keep null prices visible)
-    if (maxAskingPrice > 0 && l.asking_price != null && l.asking_price > maxAskingPrice) {
-      return false
-    }
-    // Drop listings whose title contains any user-supplied excluded keyword
+    if (maxAskingPrice > 0 && l.asking_price != null && l.asking_price > maxAskingPrice) return false
     if (excludedKeywordList.length > 0) {
       const titleLower = l.title.toLowerCase()
       if (excludedKeywordList.some((kw) => titleLower.includes(kw))) return false
     }
-    // Cash flow is already guaranteed non-null by filteredByCashFlow above
     return true
   })
 
   const fmtMoney = (n: number | null, fallback: string | null) =>
     n != null ? `$${n.toLocaleString()}` : fallback || '—'
 
-  // Activity feed: top 8 events (sold, price changes, delistings) in last 30 days
   const activity = stored
     .flatMap<{ ts: string; kind: 'sold' | 'price' | 'delisted'; listing: StoredListing }>((l) => {
       const events: { ts: string; kind: 'sold' | 'price' | 'delisted'; listing: StoredListing }[] = []
@@ -283,10 +238,11 @@ export default function Home() {
     .slice(0, 8)
 
   return (
-    <div className="min-h-screen bg-gray-950 px-6 py-10">
-      <div className="max-w-6xl mx-auto space-y-8">
+    <div className="min-h-screen bg-gray-950 px-4 py-6 sm:px-6 sm:py-10">
+      <div className="max-w-6xl mx-auto space-y-6 sm:space-y-8">
 
-        <div className="flex items-baseline justify-between gap-6">
+        {/* ── Header ── */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold text-white tracking-tight">Scraper</h1>
@@ -306,24 +262,22 @@ export default function Home() {
               )}
             </p>
           </div>
-          <div className="flex items-baseline gap-8">
-            <div className="text-right">
-              <div className="text-2xl font-bold text-white tabular-nums">
+          {/* Stats row — wraps on mobile */}
+          <div className="flex items-center gap-6 sm:gap-8">
+            <div className="text-left sm:text-right">
+              <div className="text-xl sm:text-2xl font-bold text-white tabular-nums">
                 {fmtCountdown(msUntilRescrape)}
               </div>
-              <div className="text-[11px] text-gray-500 uppercase tracking-wider">
-                Next rescrape
-              </div>
+              <div className="text-[11px] text-gray-500 uppercase tracking-wider">Next rescrape</div>
             </div>
-            <div className="text-right">
-              <div className="text-2xl font-bold text-white">{totalStored.toLocaleString()}</div>
-              <div className="text-[11px] text-gray-500 uppercase tracking-wider">
-                Total listings stored
-              </div>
+            <div className="text-left sm:text-right">
+              <div className="text-xl sm:text-2xl font-bold text-white">{totalStored.toLocaleString()}</div>
+              <div className="text-[11px] text-gray-500 uppercase tracking-wider">Total stored</div>
             </div>
           </div>
         </div>
 
+        {/* ── Source cards ── */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {SITES.map((site) => {
             const status = scrapeStatus[site.source]
@@ -331,43 +285,28 @@ export default function Home() {
             const isLoading = status?.loading
             const hasError = !!status?.error
             const isEnabled = enabledSources.has(site.source)
-
             return (
               <button
                 key={site.name}
                 onClick={() => runScrape(site)}
                 disabled={isLoading}
-                className={`text-left bg-gray-900 border rounded-xl p-4 flex flex-col gap-3 transition-colors disabled:cursor-not-allowed ${
-                  !isEnabled
-                    ? 'border-gray-800 opacity-50 hover:opacity-75'
-                    : 'border-gray-800 hover:border-gray-600'
+                className={`text-left bg-gray-900 border rounded-xl p-3 sm:p-4 flex flex-col gap-2 sm:gap-3 transition-colors disabled:cursor-not-allowed ${
+                  !isEnabled ? 'border-gray-800 opacity-50 hover:opacity-75' : 'border-gray-800 hover:border-gray-600'
                 }`}
               >
                 <span className="text-[10px] font-medium text-gray-600 uppercase tracking-widest">
                   Phase {site.phase}
                 </span>
-                <p className="text-sm font-semibold text-white leading-snug">{site.name}</p>
-                <p className="text-[11px] text-gray-600 truncate">{site.url}</p>
+                <p className="text-xs sm:text-sm font-semibold text-white leading-snug">{site.name}</p>
+                <p className="text-[11px] text-gray-600 truncate hidden sm:block">{site.url}</p>
                 <div className="mt-auto flex items-center gap-1.5">
                   <span
-                    className={`w-1.5 h-1.5 rounded-full ${
-                      isLoading
-                        ? 'bg-blue-500 animate-pulse'
-                        : hasError
-                        ? 'bg-red-500'
-                        : count > 0
-                        ? 'bg-green-500'
-                        : 'bg-gray-700'
+                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                      isLoading ? 'bg-blue-500 animate-pulse' : hasError ? 'bg-red-500' : count > 0 ? 'bg-green-500' : 'bg-gray-700'
                     }`}
                   />
                   <span className="text-[11px] text-gray-500">
-                    {isLoading
-                      ? 'Scraping…'
-                      : hasError
-                      ? 'Failed'
-                      : count > 0
-                      ? `${count} stored`
-                      : 'Click to scrape'}
+                    {isLoading ? 'Scraping…' : hasError ? 'Failed' : count > 0 ? `${count} stored` : 'Tap to scrape'}
                   </span>
                 </div>
               </button>
@@ -375,16 +314,15 @@ export default function Home() {
           })}
         </div>
 
+        {/* ── Activity feed ── */}
         {activity.length > 0 && (
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-            <h3 className="text-[10px] font-medium text-gray-500 uppercase tracking-widest mb-3">
-              Recent activity
-            </h3>
+            <h3 className="text-[10px] font-medium text-gray-500 uppercase tracking-widest mb-3">Recent activity</h3>
             <div className="space-y-2">
               {activity.map((e, i) => (
-                <div key={i} className="flex items-start gap-3 text-xs">
+                <div key={i} className="flex items-start gap-2 sm:gap-3 text-xs">
                   <span
-                    className={`mt-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium tracking-wider ${
+                    className={`mt-0.5 shrink-0 px-1.5 py-0.5 rounded text-[9px] font-medium tracking-wider ${
                       e.kind === 'sold'
                         ? 'bg-yellow-900/50 text-yellow-300 border border-yellow-800'
                         : e.kind === 'delisted'
@@ -394,21 +332,17 @@ export default function Home() {
                   >
                     {e.kind === 'sold' ? 'SOLD' : e.kind === 'delisted' ? 'DELISTED' : 'PRICE'}
                   </span>
-                  <div className="flex-1 text-gray-300 truncate">
+                  <div className="flex-1 text-gray-300 min-w-0 truncate">
                     <span className="text-gray-500 mr-1">[{e.listing.source}]</span>
                     {e.listing.title}
-                    {e.kind === 'price' &&
-                      e.listing.previous_asking_price != null &&
-                      e.listing.asking_price != null && (
-                        <span className="ml-2 text-gray-500">
-                          ${e.listing.previous_asking_price.toLocaleString()} →
-                          <span className="text-blue-300 ml-1">
-                            ${e.listing.asking_price.toLocaleString()}
-                          </span>
-                        </span>
-                      )}
+                    {e.kind === 'price' && e.listing.previous_asking_price != null && e.listing.asking_price != null && (
+                      <span className="ml-2 text-gray-500">
+                        ${e.listing.previous_asking_price.toLocaleString()} →
+                        <span className="text-blue-300 ml-1">${e.listing.asking_price.toLocaleString()}</span>
+                      </span>
+                    )}
                   </div>
-                  <span className="text-gray-600 whitespace-nowrap">
+                  <span className="text-gray-600 whitespace-nowrap text-[10px]">
                     {new Date(e.ts).toLocaleDateString()}
                   </span>
                 </div>
@@ -417,145 +351,148 @@ export default function Home() {
           </div>
         )}
 
-        <div className="flex items-center gap-3 text-xs flex-wrap">
-          <span className="text-gray-500">Min cash flow:</span>
-          <div className="flex items-center gap-1">
-            <span className="text-gray-500">$</span>
-            <input
-              type="number"
-              value={cashFlowInput}
-              onChange={(e) => {
-                setCashFlowInput(e.target.value)
-                const n = parseInt(e.target.value.replace(/,/g, ''), 10)
-                if (!isNaN(n)) setMinCashFlow(n)
-                else if (e.target.value === '') setMinCashFlow(0)
-              }}
-              placeholder="0"
-              className="w-28 bg-gray-900 border border-gray-700 rounded px-2 py-1 text-gray-200 text-xs focus:outline-none focus:border-blue-600"
-            />
-          </div>
-          <span className="text-gray-500 ml-2">Max asking price:</span>
-          <div className="flex items-center gap-1">
-            <span className="text-gray-500">$</span>
-            <input
-              type="number"
-              value={maxPriceInput}
-              onChange={(e) => {
-                setMaxPriceInput(e.target.value)
-                const n = parseInt(e.target.value.replace(/,/g, ''), 10)
-                if (!isNaN(n)) setMaxAskingPrice(n)
-                else if (e.target.value === '') setMaxAskingPrice(0)
-              }}
-              placeholder="∞"
-              className="w-32 bg-gray-900 border border-gray-700 rounded px-2 py-1 text-gray-200 text-xs focus:outline-none focus:border-blue-600"
-            />
-          </div>
-          {(minCashFlow > 0 || maxAskingPrice > 0) && (
-            <span className="text-gray-600">
-              — showing {visibleListings.length} of {stored.length} listings
-            </span>
-          )}
-          <button
-            onClick={() => setHideFranchises((v) => !v)}
-            className={`ml-auto px-3 py-1 rounded-full border transition-colors ${
-              hideFranchises
-                ? 'border-blue-600 bg-blue-600/10 text-blue-300'
-                : 'border-gray-800 text-gray-500 hover:border-gray-600 hover:text-gray-300'
-            }`}
-          >
-            {hideFranchises ? '✓ ' : ''}Hide franchises
-          </button>
-        </div>
-
-        <div className="flex items-center gap-3 text-xs flex-wrap">
-          <span className="text-gray-500 shrink-0">Exclude title keywords:</span>
-          <input
-            type="text"
-            value={excludeKeywords}
-            onChange={(e) => setExcludeKeywords(e.target.value)}
-            placeholder="e.g. laundromat, gas station, daycare"
-            className="flex-1 min-w-64 bg-gray-900 border border-gray-700 rounded px-2 py-1 text-gray-200 text-xs focus:outline-none focus:border-blue-600"
-          />
-          {excludedKeywordList.length > 0 && (
-            <span className="text-gray-600">
-              {excludedKeywordList.length} keyword{excludedKeywordList.length === 1 ? '' : 's'} blocked
-            </span>
-          )}
-          {excludeKeywords && (
+        {/* ── Filters ── */}
+        <div className="space-y-3">
+          {/* Row 1: cash flow + max price + franchise toggle */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center text-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-gray-500 shrink-0">Min cash flow:</span>
+              <div className="flex items-center gap-1">
+                <span className="text-gray-500">$</span>
+                <input
+                  type="number"
+                  value={cashFlowInput}
+                  onChange={(e) => {
+                    setCashFlowInput(e.target.value)
+                    const n = parseInt(e.target.value.replace(/,/g, ''), 10)
+                    if (!isNaN(n)) setMinCashFlow(n)
+                    else if (e.target.value === '') setMinCashFlow(0)
+                  }}
+                  placeholder="0"
+                  className="w-28 bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-gray-200 text-xs focus:outline-none focus:border-blue-600"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-500 shrink-0">Max asking price:</span>
+              <div className="flex items-center gap-1">
+                <span className="text-gray-500">$</span>
+                <input
+                  type="number"
+                  value={maxPriceInput}
+                  onChange={(e) => {
+                    setMaxPriceInput(e.target.value)
+                    const n = parseInt(e.target.value.replace(/,/g, ''), 10)
+                    if (!isNaN(n)) setMaxAskingPrice(n)
+                    else if (e.target.value === '') setMaxAskingPrice(0)
+                  }}
+                  placeholder="∞"
+                  className="w-32 bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-gray-200 text-xs focus:outline-none focus:border-blue-600"
+                />
+              </div>
+            </div>
             <button
-              onClick={() => setExcludeKeywords('')}
-              className="text-gray-500 hover:text-gray-300 px-2 py-1"
-              title="Clear keywords"
+              onClick={() => setHideFranchises((v) => !v)}
+              className={`self-start sm:self-auto px-3 py-1.5 rounded-full border transition-colors ${
+                hideFranchises
+                  ? 'border-blue-600 bg-blue-600/10 text-blue-300'
+                  : 'border-gray-800 text-gray-500 hover:border-gray-600 hover:text-gray-300'
+              }`}
             >
-              ✕
+              {hideFranchises ? '✓ ' : ''}Hide franchises
             </button>
-          )}
-        </div>
+            {(minCashFlow > 0 || maxAskingPrice > 0) && (
+              <span className="text-gray-600 text-[11px]">
+                showing {visibleListings.length} of {stored.length}
+              </span>
+            )}
+          </div>
 
-        <div className="flex items-center gap-2 text-xs flex-wrap">
-          <span className="text-gray-500">Sources:</span>
-          {SITES.map((s) => {
-            const isOn = enabledSources.has(s.source)
-            return (
+          {/* Row 2: keyword exclusion */}
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-gray-500 shrink-0">Exclude:</span>
+            <input
+              type="text"
+              value={excludeKeywords}
+              onChange={(e) => setExcludeKeywords(e.target.value)}
+              placeholder="laundromat, gas station, daycare…"
+              className="flex-1 bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-gray-200 text-xs focus:outline-none focus:border-blue-600"
+            />
+            {excludedKeywordList.length > 0 && (
+              <span className="text-gray-600 shrink-0">{excludedKeywordList.length} blocked</span>
+            )}
+            {excludeKeywords && (
               <button
-                key={s.source}
-                onClick={() =>
-                  setEnabledSources((prev) => {
-                    const next = new Set(prev)
-                    if (next.has(s.source)) next.delete(s.source)
-                    else next.add(s.source)
-                    return next
-                  })
-                }
-                title={isOn ? 'Click to hide this broker' : 'Click to show this broker'}
-                className={`px-3 py-1 rounded-full border transition-colors ${
-                  isOn
-                    ? 'border-blue-600 bg-blue-600/10 text-blue-300'
-                    : 'border-gray-800 text-gray-600 line-through hover:border-gray-600 hover:text-gray-400'
-                }`}
+                onClick={() => setExcludeKeywords('')}
+                className="text-gray-500 hover:text-gray-300 px-1"
+                title="Clear keywords"
               >
-                {isOn ? '✓ ' : ''}
-                {s.source} ({bySource[s.source] || 0})
+                ✕
               </button>
-            )
-          })}
-          <div className="ml-2 flex items-center gap-1">
-            <button
-              onClick={() => setEnabledSources(new Set(SITES.map((s) => s.source)))}
-              className="px-2 py-1 text-gray-500 hover:text-gray-300 underline-offset-2 hover:underline"
-            >
-              All on
-            </button>
-            <span className="text-gray-700">·</span>
-            <button
-              onClick={() => setEnabledSources(new Set())}
-              className="px-2 py-1 text-gray-500 hover:text-gray-300 underline-offset-2 hover:underline"
-            >
-              None
-            </button>
+            )}
           </div>
-          <span className="ml-auto text-gray-600">
-            Total stored: {totalStored.toLocaleString()}
-          </span>
+
+          {/* Row 3: source toggles */}
+          <div className="flex items-center gap-2 text-xs flex-wrap">
+            <span className="text-gray-500 shrink-0">Sources:</span>
+            {SITES.map((s) => {
+              const isOn = enabledSources.has(s.source)
+              return (
+                <button
+                  key={s.source}
+                  onClick={() =>
+                    setEnabledSources((prev) => {
+                      const next = new Set(prev)
+                      if (next.has(s.source)) next.delete(s.source)
+                      else next.add(s.source)
+                      return next
+                    })
+                  }
+                  title={isOn ? 'Click to hide this broker' : 'Click to show this broker'}
+                  className={`px-2.5 py-1 rounded-full border transition-colors ${
+                    isOn
+                      ? 'border-blue-600 bg-blue-600/10 text-blue-300'
+                      : 'border-gray-800 text-gray-600 line-through hover:border-gray-600 hover:text-gray-400'
+                  }`}
+                >
+                  {isOn ? '✓ ' : ''}{s.source} ({bySource[s.source] || 0})
+                </button>
+              )
+            })}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setEnabledSources(new Set(SITES.map((s) => s.source)))}
+                className="px-2 py-1 text-gray-500 hover:text-gray-300 underline-offset-2 hover:underline"
+              >
+                All
+              </button>
+              <span className="text-gray-700">·</span>
+              <button
+                onClick={() => setEnabledSources(new Set())}
+                className="px-2 py-1 text-gray-500 hover:text-gray-300 underline-offset-2 hover:underline"
+              >
+                None
+              </button>
+            </div>
+          </div>
         </div>
 
+        {/* ── Errors ── */}
         {activeStatus?.error && (
           <div className="bg-red-950/40 border border-red-900 rounded-xl p-4 text-sm text-red-300">
-            <strong className="font-semibold">Scrape error: </strong>
-            {activeStatus.error}
+            <strong className="font-semibold">Scrape error: </strong>{activeStatus.error}
           </div>
         )}
-
         {storedError && (
           <div className="bg-red-950/40 border border-red-900 rounded-xl p-4 text-sm text-red-300">
-            <strong className="font-semibold">Database error: </strong>
-            {storedError}
+            <strong className="font-semibold">Database error: </strong>{storedError}
           </div>
         )}
 
+        {/* ── Listings ── */}
         <div className="space-y-3">
-          <div className="flex items-baseline justify-between">
-            <h2 className="text-lg font-semibold text-white">
+          <div className="flex items-baseline justify-between flex-wrap gap-2">
+            <h2 className="text-base sm:text-lg font-semibold text-white">
               {enabledSources.size === SITES.length
                 ? 'All Listings'
                 : enabledSources.size === 1
@@ -563,25 +500,15 @@ export default function Home() {
                 : `${enabledSources.size} sources`}{' '}
               <span className="text-gray-500 font-normal">({visibleListings.length})</span>
             </h2>
-            <div className="flex items-center gap-3 text-[11px] text-gray-600">
+            <div className="flex items-center gap-3 text-[11px] text-gray-600 flex-wrap">
               {activeStatus?.storage && (
                 <span>
                   <span className="text-green-500">+{activeStatus.storage.inserted} new</span>
-                  {activeStatus.storage.updated > 0 && (
-                    <span className="text-gray-500"> · {activeStatus.storage.updated} updated</span>
-                  )}
-                  {activeStatus.storage.priceChanged ? (
-                    <span className="text-blue-400"> · {activeStatus.storage.priceChanged} price</span>
-                  ) : null}
-                  {activeStatus.storage.newlySold ? (
-                    <span className="text-yellow-400"> · {activeStatus.storage.newlySold} sold</span>
-                  ) : null}
-                  {activeStatus.storage.delisted ? (
-                    <span className="text-red-400"> · {activeStatus.storage.delisted} delisted</span>
-                  ) : null}
-                  {activeStatus.storage.errors > 0 && (
-                    <span className="text-red-500"> · {activeStatus.storage.errors} errors</span>
-                  )}
+                  {activeStatus.storage.updated > 0 && <span className="text-gray-500"> · {activeStatus.storage.updated} updated</span>}
+                  {activeStatus.storage.priceChanged ? <span className="text-blue-400"> · {activeStatus.storage.priceChanged} price</span> : null}
+                  {activeStatus.storage.newlySold ? <span className="text-yellow-400"> · {activeStatus.storage.newlySold} sold</span> : null}
+                  {activeStatus.storage.delisted ? <span className="text-red-400"> · {activeStatus.storage.delisted} delisted</span> : null}
+                  {activeStatus.storage.errors > 0 && <span className="text-red-500"> · {activeStatus.storage.errors} errors</span>}
                 </span>
               )}
               {activeStatus?.scrapedAt && (
@@ -590,7 +517,90 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+          {/* Mobile card list */}
+          <div className="md:hidden space-y-2">
+            {storedLoading && stored.length === 0 ? (
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-8 text-center text-gray-600 text-xs">
+                Loading from Supabase…
+              </div>
+            ) : visibleListings.length === 0 ? (
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-8 text-center text-gray-600 text-xs">
+                {stored.length === 0 ? 'No listings stored yet — tap a source above to scrape.' : 'No listings match your filters.'}
+              </div>
+            ) : (
+              visibleListings.map((l) => {
+                const isSold = !!l.is_sold
+                const isDelisted = !!l.delisted_at
+                const isHidden = !!l.is_hidden
+                const hasPriceChange = !!l.price_changed_at
+                return (
+                  <div
+                    key={l.id}
+                    className={`bg-gray-900 border border-gray-800 rounded-xl p-4 ${isHidden ? 'opacity-30' : ''}`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                          {isSold && (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-medium tracking-wider bg-yellow-900/50 text-yellow-300 border border-yellow-800">SOLD</span>
+                          )}
+                          {isDelisted && (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-medium tracking-wider bg-red-900/40 text-red-300 border border-red-900">DELISTED</span>
+                          )}
+                          {hasPriceChange && (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-medium tracking-wider bg-blue-900/40 text-blue-300 border border-blue-900">PRICE Δ</span>
+                          )}
+                          <span className="text-[10px] text-gray-600 uppercase tracking-wider">{l.source}</span>
+                        </div>
+                        {l.source_listing_url ? (
+                          <a
+                            href={l.source_listing_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`text-sm font-medium leading-snug hover:text-blue-400 ${isHidden ? 'text-gray-600 line-through' : isDelisted ? 'text-gray-500 line-through' : isSold ? 'text-yellow-200' : 'text-white'}`}
+                          >
+                            {l.title}
+                          </a>
+                        ) : (
+                          <span className={`text-sm font-medium leading-snug ${isHidden ? 'text-gray-600 line-through' : 'text-white'}`}>{l.title}</span>
+                        )}
+                        {l.location && <p className="text-[11px] text-gray-600 mt-0.5">{l.location}</p>}
+                      </div>
+                      <button
+                        onClick={() => toggleHidden(l)}
+                        disabled={hidingId === l.id}
+                        title={isHidden ? 'Mark as interesting' : 'Not interested'}
+                        className={`shrink-0 text-[11px] px-2 py-1 rounded border transition-colors disabled:opacity-40 ${
+                          isHidden
+                            ? 'border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300'
+                            : 'border-gray-800 text-gray-600 hover:border-red-800 hover:text-red-400 hover:bg-red-950/20'
+                        }`}
+                      >
+                        {isHidden ? '↩' : '✕'}
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-[11px] tabular-nums">
+                      <span className="text-gray-500">
+                        Asking <span className={`font-medium ${isDelisted ? 'text-gray-500' : 'text-green-400'}`}>{fmtMoney(l.asking_price, l.asking_price_text)}</span>
+                        {hasPriceChange && l.previous_asking_price != null && (
+                          <span className="ml-1 text-gray-600 line-through">${l.previous_asking_price.toLocaleString()}</span>
+                        )}
+                      </span>
+                      <span className="text-gray-500">
+                        Revenue <span className="text-gray-300">{fmtMoney(l.annual_revenue, l.annual_revenue_text)}</span>
+                      </span>
+                      <span className="text-gray-500">
+                        Cash flow <span className="text-gray-300">{fmtMoney(l.cash_flow, l.cash_flow_text)}</span>
+                      </span>
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden md:block bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-900/80 border-b border-gray-800 text-[10px] uppercase tracking-widest text-gray-500">
@@ -613,9 +623,7 @@ export default function Home() {
                 ) : visibleListings.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-4 py-8 text-center text-gray-600 text-xs">
-                      {stored.length === 0
-                        ? 'No listings stored yet — click a source above to scrape.'
-                        : 'All listings marked as not interested.'}
+                      {stored.length === 0 ? 'No listings stored yet — click a source above to scrape.' : 'No listings match your filters.'}
                     </td>
                   </tr>
                 ) : (
@@ -631,31 +639,22 @@ export default function Home() {
                       : isSold
                       ? 'text-yellow-200'
                       : 'text-white'
-
                     return (
                       <tr
                         key={l.id}
-                        className={`border-b border-gray-800/60 last:border-b-0 transition-colors hover:bg-gray-800/20 ${
-                          isHidden ? 'opacity-30' : ''
-                        }`}
+                        className={`border-b border-gray-800/60 last:border-b-0 transition-colors hover:bg-gray-800/20 ${isHidden ? 'opacity-30' : ''}`}
                       >
                         <td className="px-4 py-3 max-w-md">
                           <div className="flex items-start gap-2">
                             <div className="flex flex-col gap-1 mt-0.5 shrink-0">
                               {isSold && (
-                                <span className="px-1.5 py-0.5 rounded text-[9px] font-medium tracking-wider bg-yellow-900/50 text-yellow-300 border border-yellow-800">
-                                  SOLD
-                                </span>
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-medium tracking-wider bg-yellow-900/50 text-yellow-300 border border-yellow-800">SOLD</span>
                               )}
                               {isDelisted && (
-                                <span className="px-1.5 py-0.5 rounded text-[9px] font-medium tracking-wider bg-red-900/40 text-red-300 border border-red-900">
-                                  DELISTED
-                                </span>
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-medium tracking-wider bg-red-900/40 text-red-300 border border-red-900">DELISTED</span>
                               )}
                               {hasPriceChange && (
-                                <span className="px-1.5 py-0.5 rounded text-[9px] font-medium tracking-wider bg-blue-900/40 text-blue-300 border border-blue-900">
-                                  PRICE Δ
-                                </span>
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-medium tracking-wider bg-blue-900/40 text-blue-300 border border-blue-900">PRICE Δ</span>
                               )}
                             </div>
                             <div className="min-w-0">

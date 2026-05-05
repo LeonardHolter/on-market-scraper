@@ -57,23 +57,26 @@ export default function FindListings() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 px-6 py-10">
+    <div className="min-h-screen bg-gray-950 px-4 py-6 sm:px-6 sm:py-10">
       <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex items-baseline justify-between">
+
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">Find Listings</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Find Listings</h1>
             <p className="text-sm text-gray-500 mt-1">
-              Describe your perfect acquisition. AI will search every stored listing and surface the top 10 matches.
+              Describe your perfect acquisition. AI surfaces the top 10 matches.
             </p>
           </div>
           <Link
             href="/"
-            className="text-xs text-gray-500 hover:text-blue-400 underline-offset-2 hover:underline"
+            className="shrink-0 text-xs text-gray-500 hover:text-blue-400 underline-offset-2 hover:underline mt-1"
           >
-            ← Back to scraper
+            ← Back
           </Link>
         </div>
 
+        {/* Search box */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3">
           <textarea
             value={query}
@@ -81,41 +84,43 @@ export default function FindListings() {
             onKeyDown={(e) => {
               if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') runSearch()
             }}
-            placeholder="e.g. Profitable B2B SaaS with $1–3M cash flow, recurring revenue, low customer concentration. Or: Light-industrial service business in Texas or Florida, owner-operator transition possible, $500K–$1M SDE."
+            placeholder="e.g. Profitable B2B SaaS with $1–3M cash flow, recurring revenue, low customer concentration. Or: Light-industrial service business in Texas or Florida, $500K–$1M SDE."
             rows={4}
             className="w-full bg-gray-950 border border-gray-800 rounded px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-blue-600 resize-y"
           />
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
             <span className="text-[11px] text-gray-600">
               {query.length}/4000 · ⌘/Ctrl+Enter to search
             </span>
             <button
               onClick={runSearch}
               disabled={loading || !query.trim()}
-              className="px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-500 disabled:bg-gray-800 disabled:text-gray-600 disabled:cursor-not-allowed text-sm font-medium text-white transition-colors"
+              className="px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-500 disabled:bg-gray-800 disabled:text-gray-600 disabled:cursor-not-allowed text-sm font-medium text-white transition-colors whitespace-nowrap"
             >
-              {loading ? 'Thinking…' : 'Find best matches'}
+              {loading ? 'Thinking…' : 'Find matches'}
             </button>
           </div>
         </div>
 
+        {/* Error */}
         {error && (
           <div className="bg-red-950/40 border border-red-900 rounded-xl p-4 text-sm text-red-300">
-            <strong className="font-semibold">Error: </strong>
-            {error}
+            <strong className="font-semibold">Error: </strong>{error}
           </div>
         )}
 
+        {/* Loading */}
         {loading && (
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-8 text-center text-sm text-gray-500">
             Searching across stored listings…
           </div>
         )}
 
+        {/* Results */}
         {!loading && results.length > 0 && (
           <div className="space-y-3">
-            <div className="flex items-baseline justify-between">
-              <h2 className="text-lg font-semibold text-white">
+            <div className="flex items-baseline justify-between flex-wrap gap-2">
+              <h2 className="text-base sm:text-lg font-semibold text-white">
                 Top {results.length} match{results.length === 1 ? '' : 'es'}
               </h2>
               <span className="text-[11px] text-gray-500">
@@ -136,20 +141,18 @@ export default function FindListings() {
                     {r.rank}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-baseline justify-between gap-3">
-                      <h3 className="text-sm font-semibold text-white leading-snug truncate">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="text-sm font-semibold text-white leading-snug">
                         {r.title}
                       </h3>
-                      <span className="text-[10px] text-gray-600 uppercase tracking-wider shrink-0">
+                      <span className="text-[10px] text-gray-600 uppercase tracking-wider shrink-0 mt-0.5">
                         {r.source}
                       </span>
                     </div>
                     {r.location && (
                       <p className="text-[11px] text-gray-600 mt-0.5">{r.location}</p>
                     )}
-                    <p className="text-xs text-gray-400 mt-2 leading-relaxed">
-                      {r.reason}
-                    </p>
+                    <p className="text-xs text-gray-400 mt-2 leading-relaxed">{r.reason}</p>
                     <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-[11px] tabular-nums">
                       <span className="text-gray-500">
                         Asking <span className="text-green-400 font-medium">{fmtMoney(r.asking_price)}</span>
@@ -168,11 +171,13 @@ export default function FindListings() {
           </div>
         )}
 
+        {/* Empty state */}
         {!loading && !error && results.length === 0 && totalConsidered === 0 && query.length === 0 && (
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-8 text-center text-sm text-gray-500">
             Describe what you&apos;re looking for above to get started.
           </div>
         )}
+
       </div>
     </div>
   )
