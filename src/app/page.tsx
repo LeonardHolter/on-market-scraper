@@ -40,6 +40,7 @@ const SITES: SiteConfig[] = [
   { name: 'Bateson Business Brokerage', source: 'bateson',          phase: 1, url: 'breareger.dealrelations.com',    endpoint: '/api/scrape/bateson' },
   { name: 'BusinessesForSale.com',      source: 'businessesforsale',phase: 1, url: 'us.businessesforsale.com',       endpoint: '/api/scrape/businessesforsale' },
   { name: 'First Choice Business Brokers', source: 'fcbb',         phase: 1, url: 'fcbb.com',                       endpoint: '/api/scrape/fcbb' },
+  { name: 'Zoom Business Brokers',      source: 'zoom',             phase: 1, url: 'zoombusinessbrokers.com',        endpoint: '/api/scrape/zoom' },
 ]
 
 interface ScrapeStatus {
@@ -170,7 +171,11 @@ export default function Home() {
 
       // Only run cron-safe sources here. Bateson needs a browser popup; skip it.
       const cronSafe = SITES.filter(
-        (s) => s.source === 'synergy' || s.source === 'businessesforsale' || s.source === 'fcbb'
+        (s) =>
+          s.source === 'synergy' ||
+          s.source === 'businessesforsale' ||
+          s.source === 'fcbb' ||
+          s.source === 'zoom'
       )
       for (const site of cronSafe) {
         await runScrape(site, { silent: true })
