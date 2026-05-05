@@ -376,40 +376,6 @@ export default function Home() {
                   Live
                 </span>
 
-                {/* Account / clicks */}
-                {entitlement && (
-                  entitlement.isSubscribed ? (
-                    <Link href="/account" style={{
-                      fontSize: 12, fontWeight: 500, color: 'var(--text-2)',
-                      background: 'var(--surface)', border: '1px solid var(--border)',
-                      borderRadius: 999, padding: '4px 12px', textDecoration: 'none',
-                      display: 'inline-flex', alignItems: 'center', gap: 6,
-                    }}>
-                      <span style={{ width: 5, height: 5, borderRadius: 999, background: '#10b981', display: 'inline-block' }} />
-                      Pro
-                    </Link>
-                  ) : entitlement.isAuthed ? (
-                    <Link href="/pricing" style={{
-                      fontSize: 12, fontWeight: 500, color: 'var(--accent)',
-                      background: 'var(--accent-soft)', borderRadius: 999, padding: '4px 12px',
-                      textDecoration: 'none',
-                    }}>
-                      Upgrade · {entitlement.clicksRemaining} free left
-                    </Link>
-                  ) : (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                      <span className="df-pill" style={{ background: 'var(--surface-2)', color: 'var(--text-3)', border: '1px solid var(--border)' }}>
-                        {entitlement.clicksRemaining} / {entitlement.limit} free clicks
-                      </span>
-                      <Link href="/auth/sign-in" style={{
-                        fontSize: 12, fontWeight: 500, color: 'var(--text-2)',
-                        textDecoration: 'none',
-                      }}>
-                        Sign in
-                      </Link>
-                    </span>
-                  )
-                )}
               </div>
               <p style={{ fontSize: 13, color: 'var(--text-3)', margin: 0 }}>
                 Broker listings refreshed daily at 12:00 AM EST
@@ -421,26 +387,70 @@ export default function Home() {
               </p>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 32 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 28 }}>
               <div style={{ textAlign: 'right' }}>
-                <div className="df-mono" style={{ fontSize: 28, fontWeight: 500, letterSpacing: '-0.03em', color: 'var(--text)', lineHeight: 1 }}>
+                <div className="df-mono" style={{ fontSize: 28, fontWeight: 500, letterSpacing: '-0.03em', color: '#1a1a2e', lineHeight: 1 }}>
                   {fmtCountdown(msUntilRescrape)}
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: 5 }}>
+                <div style={{ fontSize: 11, color: '#7a7a9a', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: 5 }}>
                   Next refresh
                 </div>
               </div>
-              <div style={{ width: 1, height: 40, background: 'var(--border)' }} />
+              <div style={{ width: 1, height: 40, background: '#e8e6e1' }} />
               <div style={{ textAlign: 'right' }}>
-                <div className="df-num" style={{ fontSize: 28, fontWeight: 500, letterSpacing: '-0.03em', color: 'var(--text)', lineHeight: 1 }}>
+                <div className="df-num" style={{ fontSize: 28, fontWeight: 500, letterSpacing: '-0.03em', color: '#1a1a2e', lineHeight: 1 }}>
                   {totalStored.toLocaleString()}
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: 5 }}>
+                <div style={{ fontSize: 11, color: '#7a7a9a', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: 5 }}>
                   Stored
                 </div>
               </div>
+              <div style={{ width: 1, height: 40, background: '#e8e6e1' }} />
+              <Link href={entitlement?.isAuthed ? '/account' : '/auth/sign-in'} style={{
+                display: 'inline-flex', alignItems: 'center', gap: 7,
+                fontSize: 13, fontWeight: 500, color: '#4a4a6a',
+                background: '#ffffff', border: '1px solid #e8e6e1',
+                borderRadius: 8, padding: '8px 14px', textDecoration: 'none',
+                boxShadow: '0 1px 2px 0 rgba(26,26,46,0.04)',
+              }}>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                  <circle cx="8" cy="5.5" r="2.5" stroke="currentColor" strokeWidth="1.5"/>
+                  <path d="M2.5 13.5c0-2.485 2.462-4.5 5.5-4.5s5.5 2.015 5.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+                {entitlement?.isAuthed ? 'Account' : 'Sign in'}
+              </Link>
             </div>
           </header>
+
+          {/* ── Subscription nudge banner ────────────────────────────────── */}
+          {entitlement && !entitlement.isSubscribed && entitlement.shouldPaywall && (
+            <div style={{
+              background: '#fffbeb', border: '1px solid #fcd34d',
+              borderRadius: 12, padding: '14px 18px', marginBottom: 20,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              flexWrap: 'wrap', gap: 12,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 16 }}>🔒</span>
+                <span style={{ fontSize: 13, color: '#92400e', fontWeight: 500 }}>
+                  You&apos;ve used your 3 free listing previews.
+                </span>
+                <span style={{ fontSize: 13, color: '#b45309' }}>
+                  Subscribe to keep using Deal Flow.
+                </span>
+              </div>
+              <Link
+                href={entitlement.isAuthed ? '/pricing' : '/auth/sign-up?next=/pricing'}
+                style={{
+                  fontSize: 13, fontWeight: 600, color: 'white',
+                  background: '#d97706', borderRadius: 7,
+                  padding: '7px 16px', textDecoration: 'none', flexShrink: 0,
+                }}
+              >
+                {entitlement.isAuthed ? 'Subscribe — $19/mo' : 'Sign up & subscribe'}
+              </Link>
+            </div>
+          )}
 
           {/* ── Source cards ─────────────────────────────────────────────── */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 24 }}>
