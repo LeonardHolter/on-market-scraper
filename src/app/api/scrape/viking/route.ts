@@ -90,16 +90,41 @@ function parseListings(html: string): VikingListing[] {
 
 export async function POST() {
   try {
-    const { data: html } = await axios.get<string>(SEARCH_URL, {
+    const res = await axios.get<string>(SEARCH_URL, {
       headers: {
         'User-Agent': USER_AGENT,
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'Sec-Ch-Ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+        'Sec-Ch-Ua-Mobile': '?0',
+        'Sec-Ch-Ua-Platform': '"macOS"',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
+        'Upgrade-Insecure-Requests': '1',
+        Referer: 'https://www.google.com/',
       },
       timeout: 60_000,
       maxContentLength: 30 * 1024 * 1024,
       maxBodyLength: 30 * 1024 * 1024,
+      validateStatus: () => true, // capture non-2xx so we can diagnose
     })
+
+    const html = res.data
+    const status = res.status
+    const ctype = res.headers['content-type'] ?? ''
+
+    if (status !== 200) {
+      console.error('[viking] non-200 response', { status, ctype, snippet: String(html).slice(0, 400) })
+      return NextResponse.json(
+        { success: false, error: `Viking returned HTTP ${status}`, snippet: String(html).slice(0, 400) },
+        { status: 502 }
+      )
+    }
 
     const all = parseListings(html)
 
@@ -113,8 +138,21 @@ export async function POST() {
     })
 
     if (unique.length === 0) {
+      // Return diagnostic info — most likely Cloudflare/WAF returned a challenge page
+      const looksLikeChallenge = /cloudflare|captcha|attention required|just a moment|challenge/i.test(html.slice(0, 5000))
+      console.error('[viking] zero listings parsed', {
+        status, ctype, looksLikeChallenge, length: html.length, snippet: html.slice(0, 600),
+      })
       return NextResponse.json(
-        { success: false, error: 'No listings parsed — site layout may have changed.' },
+        {
+          success: false,
+          error: looksLikeChallenge
+            ? 'Viking blocked the request (Cloudflare/WAF challenge page).'
+            : 'No listings parsed — site layout may have changed.',
+          looksLikeChallenge,
+          htmlLength: html.length,
+          snippet: html.slice(0, 600),
+        },
         { status: 404 }
       )
     }
@@ -124,7 +162,8 @@ export async function POST() {
         source: 'viking',
         source_listing_url: l.url,
         title: l.title,
-        asking_price_text: l.askingPrice === 'Market Price' ? null : l.askingPrice,
+        // "Market Price" = undisclosed; store empty so parsePrice yields null
+        asking_price_text: l.askingPrice === 'Market Price' ? '' : l.askingPrice,
         annual_revenue_text: l.revenue,
         cash_flow_text: l.cashFlow,
         location: l.location,
