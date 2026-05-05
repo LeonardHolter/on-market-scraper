@@ -37,10 +37,9 @@ interface SiteConfig {
 }
 
 const SITES: SiteConfig[] = [
-  { name: 'Synergy Business Brokers',      source: 'synergy',  phase: 1, url: 'synergybb.com',             endpoint: '/api/scrape/synergy' },
-  { name: 'First Choice Business Brokers', source: 'fcbb',     phase: 1, url: 'fcbb.com',                  endpoint: '/api/scrape/fcbb' },
-  { name: 'Zoom Business Brokers',         source: 'zoom',     phase: 1, url: 'zoombusinessbrokers.com',   endpoint: '/api/scrape/zoom' },
-  { name: 'Sunbelt Business Brokers',      source: 'sunbelt',  phase: 1, url: 'sunbeltnetwork.com',        endpoint: '/api/scrape/sunbelt' },
+  { name: 'Synergy Business Brokers',      source: 'synergy', phase: 1, url: 'synergybb.com',           endpoint: '/api/scrape/synergy' },
+  { name: 'First Choice Business Brokers', source: 'fcbb',    phase: 1, url: 'fcbb.com',                endpoint: '/api/scrape/fcbb' },
+  { name: 'Zoom Business Brokers',         source: 'zoom',    phase: 1, url: 'zoombusinessbrokers.com', endpoint: '/api/scrape/zoom' },
 ]
 
 interface ScrapeStatus {
@@ -156,7 +155,7 @@ export default function Home() {
       if (now - lastRunRef.current < HOUR_MS) return
       lastRunRef.current = now
       const cronSafe = SITES.filter(
-        (s) => s.source === 'synergy' || s.source === 'fcbb' || s.source === 'zoom' || s.source === 'sunbelt'
+        (s) => s.source === 'synergy' || s.source === 'fcbb' || s.source === 'zoom'
       )
       for (const site of cronSafe) await runScrape(site, { silent: true })
       setLastAutoRun(new Date().toISOString())
