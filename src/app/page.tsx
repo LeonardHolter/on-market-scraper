@@ -72,6 +72,8 @@ export default function Home() {
   const [hidingId, setHidingId] = useState<string | null>(null)
   const [minCashFlow, setMinCashFlow] = useState<number>(400_000)
   const [cashFlowInput, setCashFlowInput] = useState('400000')
+  const [maxAskingPrice, setMaxAskingPrice] = useState<number>(10_000_000)
+  const [maxPriceInput, setMaxPriceInput] = useState('10000000')
   const [hideFranchises, setHideFranchises] = useState(true)
   const lastRunRef = useRef<number>(0)
 
@@ -195,6 +197,10 @@ export default function Home() {
     if (l.is_sold || l.delisted_at) return false
     // Drop franchise listings if toggle is on
     if (hideFranchises && /\bfranchise[sd]?\b/i.test(l.title)) return false
+    // Drop listings above max asking price (keep null prices visible)
+    if (maxAskingPrice > 0 && l.asking_price != null && l.asking_price > maxAskingPrice) {
+      return false
+    }
     // Cash flow is already guaranteed non-null by filteredByCashFlow above
     return true
   })
@@ -346,7 +352,23 @@ export default function Home() {
               className="w-28 bg-gray-900 border border-gray-700 rounded px-2 py-1 text-gray-200 text-xs focus:outline-none focus:border-blue-600"
             />
           </div>
-          {minCashFlow > 0 && (
+          <span className="text-gray-500 ml-2">Max asking price:</span>
+          <div className="flex items-center gap-1">
+            <span className="text-gray-500">$</span>
+            <input
+              type="number"
+              value={maxPriceInput}
+              onChange={(e) => {
+                setMaxPriceInput(e.target.value)
+                const n = parseInt(e.target.value.replace(/,/g, ''), 10)
+                if (!isNaN(n)) setMaxAskingPrice(n)
+                else if (e.target.value === '') setMaxAskingPrice(0)
+              }}
+              placeholder="∞"
+              className="w-32 bg-gray-900 border border-gray-700 rounded px-2 py-1 text-gray-200 text-xs focus:outline-none focus:border-blue-600"
+            />
+          </div>
+          {(minCashFlow > 0 || maxAskingPrice > 0) && (
             <span className="text-gray-600">
               — showing {visibleListings.length} of {stored.length} listings
             </span>
