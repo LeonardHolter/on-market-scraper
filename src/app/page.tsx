@@ -64,7 +64,11 @@ const emptyStatus: ScrapeStatus = { loading: false, error: null, storage: null, 
 const HOUR_MS = 60 * 60 * 1000
 
 export default function Home() {
-  const [filterSource, setFilterSource] = useState<string | null>(null)
+  // Sources that are currently INCLUDED in the table. Default: every known source.
+  // Click a source pill to toggle that broker on/off.
+  const [enabledSources, setEnabledSources] = useState<Set<string>>(
+    () => new Set(SITES.map((s) => s.source))
+  )
   const [stored, setStored] = useState<StoredListing[]>([])
   const [bySource, setBySource] = useState<Record<string, number>>({})
   const [storedLoading, setStoredLoading] = useState(true)
@@ -97,13 +101,13 @@ export default function Home() {
     }
   }, [])
 
+  // Always pull all sources from the API; filtering is now client-side via enabledSources
   useEffect(() => {
-    refreshStored(filterSource)
-  }, [filterSource, refreshStored])
+    refreshStored(null)
+  }, [refreshStored])
 
   const runScrape = useCallback(
     async (site: SiteConfig, opts: { silent?: boolean } = {}) => {
-      if (!opts.silent) setFilterSource(site.source)
       setScrapeStatus((s) => ({ ...s, [site.source]: { ...emptyStatus, loading: true } }))
       try {
         const res = await fetch(site.endpoint, { method: 'POST' })
@@ -129,13 +133,10 @@ export default function Home() {
           },
         }))
       } finally {
-        // Use the source we just scraped (or current filter if silent) — avoid
-        // a stale-closure bug where setFilterSource() above hasn't taken effect yet
-        const refreshFor = opts.silent ? filterSource : site.source
-        await refreshStored(refreshFor)
+        await refreshStored(null)
       }
     },
-    [filterSource, refreshStored]
+    [refreshStored]
   )
 
   const toggleHidden = useCallback(async (listing: StoredListing) => {
@@ -197,8 +198,23 @@ export default function Home() {
   }, [runScrape])
 
   const totalStored = Object.values(bySource).reduce((a, b) => a + b, 0)
-  const activeStatus = filterSource ? scrapeStatus[filterSource] : null
+  // Show last-scrape status for the most-recently-run scrape (any source)
+  const activeStatus = (() => {
+    let latest: ScrapeStatus | null = null
+    let latestTs = 0
+    for (const s of Object.values(scrapeStatus)) {
+      if (!s.scrapedAt) continue
+      const t = new Date(s.scrapedAt).getTime()
+      if (t > latestTs) {
+        latestTs = t
+        latest = s
+      }
+    }
+    return latest
+  })()
   const filteredByCashFlow = stored.filter((l) => {
+    // Hidden source toggle: drop listings whose source has been turned off
+    if (!enabledSources.has(l.source)) return false
     // Cash flow must always be present
     if (l.cash_flow == null) return false
     if (minCashFlow <= 0) return true
@@ -268,9 +284,9 @@ export default function Home() {
           {SITES.map((site) => {
             const status = scrapeStatus[site.source]
             const count = bySource[site.source] || 0
-            const isFiltered = filterSource === site.source
             const isLoading = status?.loading
             const hasError = !!status?.error
+            const isEnabled = enabledSources.has(site.source)
 
             return (
               <button
@@ -278,8 +294,8 @@ export default function Home() {
                 onClick={() => runScrape(site)}
                 disabled={isLoading}
                 className={`text-left bg-gray-900 border rounded-xl p-4 flex flex-col gap-3 transition-colors disabled:cursor-not-allowed ${
-                  isFiltered
-                    ? 'border-blue-600 ring-1 ring-blue-600/30'
+                  !isEnabled
+                    ? 'border-gray-800 opacity-50 hover:opacity-75'
                     : 'border-gray-800 hover:border-gray-600'
                 }`}
               >
@@ -433,30 +449,50 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-2 text-xs flex-wrap">
-          <span className="text-gray-500">Source:</span>
-          <button
-            onClick={() => setFilterSource(null)}
-            className={`px-3 py-1 rounded-full border transition-colors ${
-              filterSource === null
-                ? 'border-blue-600 bg-blue-600/10 text-blue-300'
-                : 'border-gray-800 text-gray-500 hover:border-gray-600 hover:text-gray-300'
-            }`}
-          >
-            All ({totalStored})
-          </button>
-          {SITES.map((s) => (
+          <span className="text-gray-500">Sources:</span>
+          {SITES.map((s) => {
+            const isOn = enabledSources.has(s.source)
+            return (
+              <button
+                key={s.source}
+                onClick={() =>
+                  setEnabledSources((prev) => {
+                    const next = new Set(prev)
+                    if (next.has(s.source)) next.delete(s.source)
+                    else next.add(s.source)
+                    return next
+                  })
+                }
+                title={isOn ? 'Click to hide this broker' : 'Click to show this broker'}
+                className={`px-3 py-1 rounded-full border transition-colors ${
+                  isOn
+                    ? 'border-blue-600 bg-blue-600/10 text-blue-300'
+                    : 'border-gray-800 text-gray-600 line-through hover:border-gray-600 hover:text-gray-400'
+                }`}
+              >
+                {isOn ? '✓ ' : ''}
+                {s.source} ({bySource[s.source] || 0})
+              </button>
+            )
+          })}
+          <div className="ml-2 flex items-center gap-1">
             <button
-              key={s.source}
-              onClick={() => setFilterSource(s.source)}
-              className={`px-3 py-1 rounded-full border transition-colors ${
-                filterSource === s.source
-                  ? 'border-blue-600 bg-blue-600/10 text-blue-300'
-                  : 'border-gray-800 text-gray-500 hover:border-gray-600 hover:text-gray-300'
-              }`}
+              onClick={() => setEnabledSources(new Set(SITES.map((s) => s.source)))}
+              className="px-2 py-1 text-gray-500 hover:text-gray-300 underline-offset-2 hover:underline"
             >
-              {s.source} ({bySource[s.source] || 0})
+              All on
             </button>
-          ))}
+            <span className="text-gray-700">·</span>
+            <button
+              onClick={() => setEnabledSources(new Set())}
+              className="px-2 py-1 text-gray-500 hover:text-gray-300 underline-offset-2 hover:underline"
+            >
+              None
+            </button>
+          </div>
+          <span className="ml-auto text-gray-600">
+            Total stored: {totalStored.toLocaleString()}
+          </span>
         </div>
 
         {activeStatus?.error && (
@@ -476,9 +512,11 @@ export default function Home() {
         <div className="space-y-3">
           <div className="flex items-baseline justify-between">
             <h2 className="text-lg font-semibold text-white">
-              {filterSource
-                ? `${SITES.find((s) => s.source === filterSource)?.name ?? filterSource}`
-                : 'All Listings'}{' '}
+              {enabledSources.size === SITES.length
+                ? 'All Listings'
+                : enabledSources.size === 1
+                ? SITES.find((s) => enabledSources.has(s.source))?.name ?? 'Listings'
+                : `${enabledSources.size} sources`}{' '}
               <span className="text-gray-500 font-normal">({visibleListings.length})</span>
             </h2>
             <div className="flex items-center gap-3 text-[11px] text-gray-600">
