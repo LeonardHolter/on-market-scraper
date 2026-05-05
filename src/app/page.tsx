@@ -75,6 +75,7 @@ export default function Home() {
   const [maxAskingPrice, setMaxAskingPrice] = useState<number>(10_000_000)
   const [maxPriceInput, setMaxPriceInput] = useState('10000000')
   const [hideFranchises, setHideFranchises] = useState(true)
+  const [excludeKeywords, setExcludeKeywords] = useState<string>('')
   const lastRunRef = useRef<number>(0)
 
   const refreshStored = useCallback(async (source: string | null = null) => {
@@ -195,6 +196,11 @@ export default function Home() {
     if (minCashFlow <= 0) return true
     return l.cash_flow >= minCashFlow
   })
+  const excludedKeywordList = excludeKeywords
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
+
   const visibleListings = filteredByCashFlow.filter((l) => {
     // Drop sold and delisted listings
     if (l.is_sold || l.delisted_at) return false
@@ -203,6 +209,11 @@ export default function Home() {
     // Drop listings above max asking price (keep null prices visible)
     if (maxAskingPrice > 0 && l.asking_price != null && l.asking_price > maxAskingPrice) {
       return false
+    }
+    // Drop listings whose title contains any user-supplied excluded keyword
+    if (excludedKeywordList.length > 0) {
+      const titleLower = l.title.toLowerCase()
+      if (excludedKeywordList.some((kw) => titleLower.includes(kw))) return false
     }
     // Cash flow is already guaranteed non-null by filteredByCashFlow above
     return true
@@ -386,6 +397,31 @@ export default function Home() {
           >
             {hideFranchises ? '✓ ' : ''}Hide franchises
           </button>
+        </div>
+
+        <div className="flex items-center gap-3 text-xs flex-wrap">
+          <span className="text-gray-500 shrink-0">Exclude title keywords:</span>
+          <input
+            type="text"
+            value={excludeKeywords}
+            onChange={(e) => setExcludeKeywords(e.target.value)}
+            placeholder="e.g. laundromat, gas station, daycare"
+            className="flex-1 min-w-64 bg-gray-900 border border-gray-700 rounded px-2 py-1 text-gray-200 text-xs focus:outline-none focus:border-blue-600"
+          />
+          {excludedKeywordList.length > 0 && (
+            <span className="text-gray-600">
+              {excludedKeywordList.length} keyword{excludedKeywordList.length === 1 ? '' : 's'} blocked
+            </span>
+          )}
+          {excludeKeywords && (
+            <button
+              onClick={() => setExcludeKeywords('')}
+              className="text-gray-500 hover:text-gray-300 px-2 py-1"
+              title="Clear keywords"
+            >
+              ✕
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-2 text-xs flex-wrap">
