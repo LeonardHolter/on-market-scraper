@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     : await getOrCreateVisitorId({ userAgent: req.headers.get('user-agent') ?? undefined })
 
   // Check entitlement BEFORE recording the click
-  const ent = await getEntitlement({ userId, visitorId })
+  const ent = await getEntitlement({ userId, visitorId, email: user?.email ?? null })
   if (ent.shouldPaywall) {
     return NextResponse.json({
       ok: false,
@@ -68,13 +68,14 @@ export async function POST(req: NextRequest) {
   })
 
   // Recompute remaining
-  const after = await getEntitlement({ userId, visitorId })
+  const after = await getEntitlement({ userId, visitorId, email: user?.email ?? null })
 
   return NextResponse.json({
     ok: true,
     redirect: listing.source_listing_url,
     isAuthed: after.isAuthed,
     isSubscribed: after.isSubscribed,
+    shouldPaywall: after.shouldPaywall,
     clicksUsed: after.clicksUsed,
     clicksRemaining: after.clicksRemaining,
     limit: FREE_CLICK_LIMIT,
@@ -96,12 +97,13 @@ export async function GET(req: NextRequest) {
     ? null
     : await getOrCreateVisitorId({ userAgent: req.headers.get('user-agent') ?? undefined })
 
-  const ent = await getEntitlement({ userId, visitorId })
+  const ent = await getEntitlement({ userId, visitorId, email: user?.email ?? null })
   return NextResponse.json({
     ok: true,
     email: user?.email ?? null,
     isAuthed: ent.isAuthed,
     isSubscribed: ent.isSubscribed,
+    shouldPaywall: ent.shouldPaywall,
     clicksUsed: ent.clicksUsed,
     clicksRemaining: ent.clicksRemaining,
     limit: FREE_CLICK_LIMIT,

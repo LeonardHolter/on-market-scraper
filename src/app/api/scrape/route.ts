@@ -11,7 +11,10 @@ const TARGET_URL =
 const USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 
-async function applyStealthPatches(page: any) {
+type FakePlugin = { name: string }
+type FakePluginArray = FakePlugin[] & { item: (i: number) => FakePlugin; namedItem: (n: string) => FakePlugin | undefined; refresh: () => void }
+
+async function applyStealthPatches(page: { evaluateOnNewDocument: (fn: () => void) => Promise<void> }) {
   await page.evaluateOnNewDocument(() => {
     // Remove webdriver flag
     Object.defineProperty(navigator, 'webdriver', { get: () => false })
@@ -19,9 +22,9 @@ async function applyStealthPatches(page: any) {
     // Fake plugins
     Object.defineProperty(navigator, 'plugins', {
       get: () => {
-        const arr: any = [{ name: 'Chrome PDF Plugin' }, { name: 'Chrome PDF Viewer' }, { name: 'Native Client' }]
+        const arr = [{ name: 'Chrome PDF Plugin' }, { name: 'Chrome PDF Viewer' }, { name: 'Native Client' }] as FakePluginArray
         arr.item = (i: number) => arr[i]
-        arr.namedItem = (n: string) => arr.find((p: any) => p.name === n)
+        arr.namedItem = (n: string) => arr.find((p) => p.name === n)
         arr.refresh = () => {}
         return arr
       }
@@ -31,21 +34,21 @@ async function applyStealthPatches(page: any) {
     Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] })
 
     // Chrome runtime mock
-    ;(window as any).chrome = { runtime: {}, loadTimes: () => {}, csi: () => {} }
+    ;(window as unknown as { chrome: unknown }).chrome = { runtime: {}, loadTimes: () => {}, csi: () => {} }
 
     // Permissions mock
     const originalQuery = window.navigator.permissions?.query
     if (originalQuery) {
-      window.navigator.permissions.query = (parameters: any) =>
+      window.navigator.permissions.query = (parameters: PermissionDescriptor) =>
         parameters.name === 'notifications'
-          ? Promise.resolve({ state: Notification.permission } as any)
+          ? Promise.resolve({ state: Notification.permission } as PermissionStatus)
           : originalQuery(parameters)
     }
   })
 }
 
 export async function POST(request: NextRequest) {
-  let browser: any = null
+  let browser: { close: () => Promise<void> } | null = null
 
   try {
     const { platform } = await request.json()
@@ -208,8 +211,8 @@ export async function POST(request: NextRequest) {
     }
 
     // AI evaluation + Supabase storage
-    const processedListings: any[] = []
-    const qualifiedListings: any[] = []
+    const processedListings: Record<string, unknown>[] = []
+    const qualifiedListings: Record<string, unknown>[] = []
 
     for (let i = 0; i < Math.min(rawListings.length, 15); i++) {
       const listing = rawListings[i]

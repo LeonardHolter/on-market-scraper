@@ -5,6 +5,9 @@ export const FREE_CLICK_LIMIT = 3
 
 const ACTIVE_STATUSES = new Set(['active', 'trialing'])
 
+/** Emails that always get full access without a subscription. */
+const OWNER_EMAILS = new Set(['leonard@holterholdings.com'])
+
 export interface Entitlement {
   /** Has an active paid subscription. */
   isSubscribed: boolean
@@ -25,9 +28,15 @@ export interface Entitlement {
 export async function getEntitlement(args: {
   userId?: string | null
   visitorId?: string | null
+  email?: string | null
 }): Promise<Entitlement> {
-  const { userId, visitorId } = args
+  const { userId, visitorId, email } = args
   const isAuthed = !!userId
+
+  // Owner accounts: always allow, no subscription needed
+  if (email && OWNER_EMAILS.has(email.toLowerCase())) {
+    return { isSubscribed: true, isAuthed: true, clicksUsed: 0, clicksRemaining: -1, shouldPaywall: false }
+  }
 
   // Subscribed users: always allow
   if (userId) {

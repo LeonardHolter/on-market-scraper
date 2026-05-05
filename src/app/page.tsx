@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 interface Entitlement {
   isAuthed: boolean
   isSubscribed: boolean
+  shouldPaywall: boolean
   email: string | null
   clicksUsed: number
   clicksRemaining: number
@@ -86,7 +87,6 @@ export default function Home() {
   const [storedError, setStoredError] = useState<string | null>(null)
   const [scrapeStatus, setScrapeStatus] = useState<Record<string, ScrapeStatus>>({})
   const [lastAutoRun, setLastAutoRun] = useState<string | null>(null)
-  const [hidingId, setHidingId] = useState<string | null>(null)
   const [minCashFlow, setMinCashFlow] = useState<number>(400_000)
   const [cashFlowInput, setCashFlowInput] = useState('400000')
   const [maxAskingPrice, setMaxAskingPrice] = useState<number>(10_000_000)
@@ -106,10 +106,15 @@ export default function Home() {
     fetch('/api/track-click')
       .then((r) => r.json())
       .then((d) => {
-        if (d?.ok) setEntitlement({
-          isAuthed: d.isAuthed, isSubscribed: d.isSubscribed, email: d.email ?? null,
-          clicksUsed: d.clicksUsed, clicksRemaining: d.clicksRemaining, limit: d.limit,
-        })
+        if (d?.ok) {
+          const ent: Entitlement = {
+            isAuthed: d.isAuthed, isSubscribed: d.isSubscribed, shouldPaywall: !!d.shouldPaywall, email: d.email ?? null,
+            clicksUsed: d.clicksUsed, clicksRemaining: d.clicksRemaining, limit: d.limit,
+          }
+          setEntitlement(ent)
+          // Auto-open paywall if already over limit on page load
+          if (ent.shouldPaywall && !ent.isSubscribed) setPaywallOpen(true)
+        }
       })
       .catch(() => {})
   }, [])
@@ -128,12 +133,12 @@ export default function Home() {
         })
         const data = await res.json()
         if (data?.paywall) {
-          setEntitlement((prev) => prev ? { ...prev, clicksUsed: data.clicksUsed, clicksRemaining: 0, isAuthed: data.isAuthed, isSubscribed: data.isSubscribed } : prev)
+          setEntitlement((prev) => prev ? { ...prev, clicksUsed: data.clicksUsed, clicksRemaining: 0, isAuthed: data.isAuthed, isSubscribed: data.isSubscribed, shouldPaywall: true } : prev)
           setPaywallOpen(true)
           return
         }
         if (data?.ok && data.redirect) {
-          setEntitlement((prev) => prev ? { ...prev, clicksUsed: data.clicksUsed, clicksRemaining: data.clicksRemaining, isAuthed: data.isAuthed, isSubscribed: data.isSubscribed } : prev)
+          setEntitlement((prev) => prev ? { ...prev, clicksUsed: data.clicksUsed, clicksRemaining: data.clicksRemaining, isAuthed: data.isAuthed, isSubscribed: data.isSubscribed, shouldPaywall: !!data.shouldPaywall } : prev)
           window.open(data.redirect, '_blank', 'noopener,noreferrer')
         }
       } catch {
@@ -187,24 +192,6 @@ export default function Home() {
     },
     [refreshStored]
   )
-
-  const toggleHidden = useCallback(async (listing: StoredListing) => {
-    const newVal = !listing.is_hidden
-    setHidingId(listing.id)
-    setStored((prev) => prev.map((l) => (l.id === listing.id ? { ...l, is_hidden: newVal } : l)))
-    try {
-      const res = await fetch(`/api/broker-listings/${listing.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_hidden: newVal }),
-      })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    } catch {
-      setStored((prev) => prev.map((l) => (l.id === listing.id ? { ...l, is_hidden: !newVal } : l)))
-    } finally {
-      setHidingId(null)
-    }
-  }, [])
 
   useEffect(() => {
     const tick = async () => {
@@ -340,8 +327,6 @@ export default function Home() {
     .df-btn-ghost { background: #ffffff; color: #7a7a9a; border: 1px solid #e8e6e1; border-radius: 6px; padding: 5px 10px; font-size: 11px; font-weight: 500; cursor: pointer; font-family: inherit; transition: all 150ms; }
     .df-btn-ghost:hover { border-color: #d4d1ca; color: #4a4a6a; }
     .df-btn-active { background: #eef1fe !important; color: #4f6ef7 !important; border-color: transparent !important; }
-    .df-hide-btn { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #e8e6e1; border-radius: 6px; background: #ffffff; color: #a8a8c0; cursor: pointer; font-size: 11px; transition: all 150ms; }
-    .df-hide-btn:hover { border-color: #d4d1ca; color: #b91c1c; }
     .df-source-card { background: #ffffff; border: 1px solid #e8e6e1; border-radius: 12px; padding: 18px; cursor: pointer; transition: all 150ms; box-shadow: 0 1px 2px 0 rgba(26,26,46,0.04); text-align: left; width: 100%; }
     .df-source-card:hover { border-color: #d4d1ca; transform: translateY(-1px); box-shadow: 0 1px 3px 0 rgba(26,26,46,0.06), 0 4px 12px -4px rgba(26,26,46,0.05); }
     .df-source-card.active { border-color: #4f6ef7; background: #eef1fe; }
@@ -351,7 +336,14 @@ export default function Home() {
     <>
       <style dangerouslySetInnerHTML={{ __html: css }} />
       <div className="df-page" style={{ fontFamily: "'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif" }}>
-        <div style={{ maxWidth: 1260, margin: '0 auto', padding: '40px 32px 80px' }}>
+        <div style={{
+          maxWidth: 1260, margin: '0 auto', padding: '40px 32px 80px',
+          ...(entitlement?.shouldPaywall && !entitlement?.isSubscribed ? {
+            filter: 'blur(6px)',
+            pointerEvents: 'none',
+            userSelect: 'none',
+          } : {}),
+        }}>
 
           {/* ── Header ───────────────────────────────────────────────────── */}
           <header style={{
@@ -636,14 +628,13 @@ export default function Home() {
                   <th className="sortable" style={{ textAlign: 'right' }} onClick={() => handleSort('first_seen_at')}>
                     Added {sortArrow('first_seen_at')}
                   </th>
-                  <th style={{ width: 40 }} />
                 </tr>
               </thead>
               <tbody>
                 {storedLoading && stored.length === 0 ? (
-                  <tr><td colSpan={8} style={{ padding: '48px 20px', textAlign: 'center', color: 'var(--text-4)', fontSize: 13 }}>Loading…</td></tr>
+                  <tr><td colSpan={7} style={{ padding: '48px 20px', textAlign: 'center', color: 'var(--text-4)', fontSize: 13 }}>Loading…</td></tr>
                 ) : sortedListings.length === 0 ? (
-                  <tr><td colSpan={8} style={{ padding: '48px 20px', textAlign: 'center', color: 'var(--text-4)', fontSize: 13 }}>
+                  <tr><td colSpan={7} style={{ padding: '48px 20px', textAlign: 'center', color: 'var(--text-4)', fontSize: 13 }}>
                     {stored.length === 0 ? 'No listings yet — click a source above to scrape.' : 'No listings match your filters.'}
                   </td></tr>
                 ) : sortedListings.map((l) => {
@@ -707,18 +698,6 @@ export default function Home() {
                           {new Date(l.first_seen_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                         </span>
                       </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <button
-                          className="df-hide-btn"
-                          onClick={() => toggleHidden(l)}
-                          disabled={hidingId === l.id}
-                          title="Hide listing"
-                        >
-                          <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-                            <path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
-                          </svg>
-                        </button>
-                      </td>
                     </tr>
                   )
                 })}
@@ -764,16 +743,6 @@ export default function Home() {
                         <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 4 }}>{l.location}</div>
                       )}
                     </div>
-                    <button
-                      className="df-hide-btn"
-                      onClick={() => toggleHidden(l)}
-                      disabled={hidingId === l.id}
-                      style={{ flexShrink: 0 }}
-                    >
-                      <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-                        <path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
-                      </svg>
-                    </button>
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 20px', marginTop: 12 }}>
                     <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
@@ -840,8 +809,83 @@ export default function Home() {
 
         </div>
 
-        {/* ── Paywall modal ─────────────────────────────────────────────── */}
-        {paywallOpen && (
+        {/* ── Hard-lock paywall: floating card over blurred page (no dark backdrop) ── */}
+        {entitlement?.shouldPaywall && !entitlement?.isSubscribed && (
+          <div style={{
+            position: 'fixed', inset: 0, zIndex: 50,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 20, pointerEvents: 'none',
+          }}>
+            <div style={{
+              background: '#ffffff', borderRadius: 18,
+              boxShadow: '0 8px 40px -8px rgba(26,26,46,0.18), 0 2px 8px 0 rgba(26,26,46,0.08)',
+              padding: '32px 32px 28px', maxWidth: 420, width: '100%', boxSizing: 'border-box',
+              border: '1px solid #e8e6e1', pointerEvents: 'all',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                <div style={{
+                  width: 40, height: 40, borderRadius: 11, flexShrink: 0,
+                  background: '#eef1fe', color: '#4f6ef7',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
+                }}>🔒</div>
+                <div>
+                  <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.02em', color: '#1a1a2e', lineHeight: 1.2 }}>
+                    Unlock Deal Flow
+                  </div>
+                  <div style={{ fontSize: 12, color: '#7a7a9a', marginTop: 2 }}>
+                    You&apos;ve used your 3 free previews
+                  </div>
+                </div>
+              </div>
+
+              <p style={{ fontSize: 13, color: '#4a4a6a', lineHeight: 1.6, margin: '0 0 20px' }}>
+                Subscribe for <strong style={{ color: '#1a1a2e' }}>$19/month</strong> to get unlimited
+                listing access, daily refreshes, and price-change alerts.
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+                {['Unlimited listing clicks', 'Daily broker refresh', 'Price-change alerts', 'AI-powered search'].map((f) => (
+                  <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: '#4a4a6a' }}>
+                    <span style={{
+                      width: 17, height: 17, borderRadius: 999, flexShrink: 0,
+                      background: '#eef1fe', color: '#4f6ef7',
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <svg width="9" height="9" viewBox="0 0 12 12" fill="none">
+                        <path d="M2 6l3 3 5-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </span>
+                    {f}
+                  </div>
+                ))}
+              </div>
+
+              <Link
+                href={entitlement?.isAuthed ? '/pricing' : '/auth/sign-up?next=/pricing'}
+                style={{
+                  display: 'block', textAlign: 'center', textDecoration: 'none',
+                  background: '#4f6ef7', color: 'white',
+                  borderRadius: 10, padding: '12px 16px', fontSize: 14, fontWeight: 600,
+                  letterSpacing: '-0.01em',
+                  boxShadow: '0 1px 3px 0 rgba(79,110,247,0.25), 0 4px 12px -4px rgba(79,110,247,0.3)',
+                }}
+              >
+                {entitlement?.isAuthed ? 'Subscribe — $19 / month' : 'Sign up & subscribe'}
+              </Link>
+              {!entitlement?.isAuthed && (
+                <p style={{ fontSize: 12, color: '#7a7a9a', textAlign: 'center', marginTop: 10, marginBottom: 0 }}>
+                  Already have an account?{' '}
+                  <Link href="/auth/sign-in?next=/pricing" style={{ color: '#4f6ef7', textDecoration: 'none', fontWeight: 500 }}>
+                    Sign in
+                  </Link>
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Mid-session paywall modal (triggered after 3rd click, dismissable) ── */}
+        {paywallOpen && !entitlement?.shouldPaywall && (
           <div
             onClick={() => setPaywallOpen(false)}
             style={{
@@ -854,34 +898,30 @@ export default function Home() {
             <div
               onClick={(e) => e.stopPropagation()}
               style={{
-                background: 'var(--surface)', borderRadius: 16,
+                background: '#ffffff', borderRadius: 16,
                 boxShadow: '0 20px 60px -10px rgba(26,26,46,0.3)',
                 padding: 32, maxWidth: 440, width: '100%', boxSizing: 'border-box',
-                border: '1px solid var(--border)',
+                border: '1px solid #e8e6e1',
               }}
             >
               <div style={{
                 width: 44, height: 44, borderRadius: 12, marginBottom: 18,
-                background: 'var(--accent-soft)', color: 'var(--accent)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 22,
-              }}>
-                ✦
-              </div>
-              <h2 style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.025em', margin: 0, color: 'var(--text)' }}>
+                background: '#eef1fe', color: '#4f6ef7',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
+              }}>✦</div>
+              <h2 style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.025em', margin: 0, color: '#1a1a2e' }}>
                 You&apos;ve used your free previews
               </h2>
-              <p style={{ fontSize: 13, color: 'var(--text-3)', marginTop: 8, lineHeight: 1.55 }}>
-                Subscribe for <strong style={{ color: 'var(--text)' }}>$19/month</strong> to unlock unlimited
+              <p style={{ fontSize: 13, color: '#7a7a9a', marginTop: 8, lineHeight: 1.55 }}>
+                Subscribe for <strong style={{ color: '#1a1a2e' }}>$19/month</strong> to unlock unlimited
                 listing access, daily refreshes, and price-change alerts. Cancel anytime.
               </p>
-
               <ul style={{ listStyle: 'none', padding: 0, margin: '20px 0 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {['Unlimited listings', 'Daily broker refresh', 'Price-change alerts', 'AI search'].map((f) => (
-                  <li key={f} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--text-2)' }}>
+                  <li key={f} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: '#4a4a6a' }}>
                     <span style={{
                       width: 16, height: 16, borderRadius: 999, flexShrink: 0,
-                      background: 'var(--accent-soft)', color: 'var(--accent)',
+                      background: '#eef1fe', color: '#4f6ef7',
                       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                     }}>
                       <svg width="9" height="9" viewBox="0 0 12 12" fill="none">
@@ -892,21 +932,20 @@ export default function Home() {
                   </li>
                 ))}
               </ul>
-
               <Link
                 href={entitlement?.isAuthed ? '/pricing' : '/auth/sign-up?next=/pricing'}
                 style={{
                   display: 'block', textAlign: 'center', textDecoration: 'none',
-                  background: 'var(--accent)', color: 'white',
+                  background: '#4f6ef7', color: 'white',
                   borderRadius: 10, padding: '12px 16px', fontSize: 14, fontWeight: 500,
                 }}
               >
                 {entitlement?.isAuthed ? 'Subscribe — $19 / month' : 'Sign up & subscribe'}
               </Link>
               {!entitlement?.isAuthed && (
-                <p style={{ fontSize: 12, color: 'var(--text-3)', textAlign: 'center', marginTop: 12 }}>
+                <p style={{ fontSize: 12, color: '#7a7a9a', textAlign: 'center', marginTop: 12 }}>
                   Already have an account?{' '}
-                  <Link href="/auth/sign-in?next=/pricing" style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 500 }}>
+                  <Link href="/auth/sign-in?next=/pricing" style={{ color: '#4f6ef7', textDecoration: 'none', fontWeight: 500 }}>
                     Sign in
                   </Link>
                 </p>
@@ -916,7 +955,7 @@ export default function Home() {
                 style={{
                   width: '100%', marginTop: 8, padding: '10px',
                   background: 'transparent', border: 'none',
-                  color: 'var(--text-4)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
+                  color: '#a8a8c0', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
                 }}
               >
                 Maybe later
