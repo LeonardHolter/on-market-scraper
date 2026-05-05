@@ -82,13 +82,6 @@ export default function FindListings() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                  <Link href="/" style={{
-                    width: 28, height: 28, borderRadius: 8, flexShrink: 0,
-                    background: 'linear-gradient(135deg, #4f6ef7 0%, #6c4de8 100%)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: 'white', fontSize: 13, fontWeight: 700,
-                    boxShadow: '0 1px 3px 0 rgba(26,26,46,0.06), 0 4px 12px -4px rgba(26,26,46,0.05)',
-                  }}>D</Link>
                   <h1 style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.025em', margin: 0, color: '#1a1a2e' }}>
                     Find Listings
                   </h1>

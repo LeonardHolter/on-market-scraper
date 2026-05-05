@@ -353,13 +353,6 @@ export default function Home() {
           }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
-                <div style={{
-                  width: 30, height: 30, borderRadius: 9,
-                  background: 'linear-gradient(135deg, #4f6ef7 0%, #6c4de8 100%)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: 'white', fontSize: 14, fontWeight: 700, flexShrink: 0,
-                  boxShadow: 'var(--shadow-md)',
-                }}>D</div>
                 <h1 style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.025em', margin: 0, color: 'var(--text)' }}>
                   Nemmis
                 </h1>
