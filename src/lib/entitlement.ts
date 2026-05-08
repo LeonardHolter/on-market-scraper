@@ -6,7 +6,11 @@ export const FREE_CLICK_LIMIT = 3
 const ACTIVE_STATUSES = new Set(['active', 'trialing'])
 
 /** Emails that always get full access without a subscription. */
-const OWNER_EMAILS = new Set(['leonard@holterholdings.com'])
+const OWNER_EMAILS = new Set([
+  'leonard@holterholdings.com',
+  'tommaso.mortara1@gmail.com',
+  'johncolman04@gmail.com',
+])
 
 export interface Entitlement {
   /** Has an active paid subscription. */
